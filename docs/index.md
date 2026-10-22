@@ -16,16 +16,11 @@ links, a single navigation and one global search. It fills the gap left by the
 uv tool install zmerge
 ```
 
-To render API docs with [mkdocstrings](https://mkdocstrings.github.io/), install `mkdocstrings-python` alongside:
-
-```bash
-uv tool install zmerge --with mkdocstrings-python
-```
+To render API docs with [mkdocstrings](https://mkdocstrings.github.io/), add `--with mkdocstrings-python`.
 
 ## Quick start
 
-Create an umbrella project with a regular `zensical.toml` and include other projects in its `nav`, just like with the
-mkdocs-monorepo-plugin:
+Create an umbrella project with a regular `zensical.toml` and include other projects in its `nav`:
 
 ```toml
 [project]
@@ -42,45 +37,51 @@ nav = [
 permalink = true
 ```
 
-Build the merged site into `site/`:
+Build the merged site into `site/`, or preview it with live re-assembly:
 
 ```bash
 zmerge build --strict
-```
-
-Or preview it, re-assembling it whenever a project changes:
-
-```bash
 zmerge serve
 ```
 
-Add `.zmerge/` and `.zmerge.toml` to your `.gitignore`.
+Keep the [generated files](#generated-files) out of git:
 
-!!! example "Example"
+```bash
+printf '.zmerge/\n.zmerge.toml\n' >> .gitignore
+```
+
+!!! example
 
     [examples/karelze](https://github.com/KarelZe/zmerge/tree/main/examples/karelze) merges the docs of
-    [lev](https://github.com/KarelZe/lev) and [dame-rs](https://github.com/KarelZe/dame-rs) straight from GitHub.
-    See the [result](https://karelze.github.io/zmerge/example/).
+    [lev](https://github.com/KarelZe/lev) and [dame-rs](https://github.com/KarelZe/dame-rs) from GitHub. See the
+    [result](https://karelze.github.io/zmerge/example/).
 
 ## How it works
 
-zmerge needs no custom Zensical and no plugins:
+1. zmerge reads the umbrella `zensical.toml` and every included project, from local paths or git repositories.
+2. It assembles one regular Zensical project from the docs and configurations of all projects.
+3. It rewrites what would break in the merged site: links between projects, links out of a project's docs, and
+   per-project mkdocstrings and snippets settings.
+4. It builds the merged project once with `zensical build`. So there is one search index, and Zensical validates every
+   link across projects.
 
-1. It reads the umbrella configuration and every included project, from local paths or git repositories.
-2. It assembles a single, regular Zensical project next to the umbrella configuration: `.zmerge/docs` holds the docs of
-   all projects below their prefix (hardlinked, not copied), and `.zmerge.toml` holds the merged configuration and
-   navigation.
-3. It rewrites what wouldn't work in the merged site: links between projects, links leaving a project's docs, and
-   mkdocstrings and snippets settings that differ between projects.
-4. It builds the merged project once with `zensical build`. As it is one build, there is one search index, and
-   Zensical validates every link across projects.
+Re-assembling is incremental and takes a few milliseconds.
 
-Re-assembling is incremental and takes a few milliseconds, so it adds next to nothing to a Zensical build.
+### Generated files
+
+zmerge writes the merged project next to the umbrella `zensical.toml`:
+
+- `.zmerge.toml`: the merged Zensical configuration.
+- `.zmerge/docs/`: the docs of all projects below their prefixes, hardlinked to the originals where possible.
+- `.zmerge/repos/`: projects fetched from git repositories.
+
+These files are internal to zmerge. Inspect them to debug a build, but don't edit or commit them: zmerge overwrites
+them on every run, and editing a hardlinked file in `.zmerge/docs/` changes the original.
 
 ## Next steps
 
-- [Configuration](configuration.md): includes, prefixes, git sources and how project settings are merged.
-- [Links](links.md): how to link between projects.
-- [Command line](cli.md): all commands and options.
+- [Configuration](configuration.md): includes, prefixes, git sources and merged settings.
+- [Links](links.md): linking between projects.
+- [Command line](cli.md): commands and options.
 - [Migrating from mkdocs-monorepo-plugin](migrating.md).
-- [Limitations](limitations.md): what's not supported (yet).
+- [Limitations](limitations.md): what's not supported yet.
