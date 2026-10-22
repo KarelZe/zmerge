@@ -73,6 +73,20 @@ project, including the umbrella. `zmerge build --strict` treats zmerge's warning
     found through the handler `paths` of each project (default: the project root). If a project relies on its package
     being installed instead, install it into the same environment or set `paths` in the project.
 
+## Links
+
+Links within a project keep working, because each project keeps its folder structure below its prefix. zmerge rewrites
+two kinds of links:
+
+- **Links between projects.** Link to another project with the absolute URL of its published site, e.g.
+  `https://karelze.github.io/dame-rs/design/#opening-book`. The link works when the project is built on its own. When
+  merged, zmerge turns every link into the `site_url` of the umbrella or a project into a relative link to the merged
+  page, e.g. `../dame/design.md#opening-book`, so Zensical validates it, anchors included.
+- **Links leaving a project's docs**, e.g. `../LICENSE`, become links to the file in the project's repository, built
+  from `repo_url` and `edit_uri`.
+
+Links in code blocks and inline code are left untouched.
+
 ## How it works
 
 zmerge needs no custom Zensical. It assembles the documentation of all projects into a single, regular Zensical

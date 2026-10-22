@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 import tomli_w
 
 from zmerge.config import Include, Link, Section, ZmergeError
+from zmerge.links import rewrite_links
 from zmerge.merge import merge_config
 
 if TYPE_CHECKING:
@@ -81,10 +82,12 @@ def assemble(site: Site) -> Assembly:
     files = collect_files(site)
     nav = _convert_nav(site.nav, prefix="", files=files, config_file=site.config_file)
 
-    _materialize(files, docs_dir)
+    rewritten, link_warnings = rewrite_links(site, files)
+    _materialize(files, docs_dir, rewritten)
     (staging / ".gitignore").write_text("*\n", encoding="utf-8")
 
     config, warnings = merge_config(site)
+    warnings += link_warnings
     config["docs_dir"] = docs_dir.relative_to(site.root).as_posix()
     config["nav"] = nav
     config_file = site.root / GENERATED_CONFIG
@@ -148,8 +151,8 @@ def _walk(docs_dir: Path, excluded: set[Path]) -> list[tuple[str, Path]]:
     return found
 
 
-def _materialize(files: Mapping[str, Source], docs_dir: Path) -> None:
-    """Recreate ``docs_dir`` with hardlinks to all files, falling back to copies."""
+def _materialize(files: Mapping[str, Source], docs_dir: Path, rewritten: Mapping[str, str]) -> None:
+    """Recreate ``docs_dir`` with hardlinks to all files, falling back to copies, and write rewritten files."""
     if docs_dir.exists():
         shutil.rmtree(docs_dir)
     created: set[Path] = set()
@@ -158,6 +161,9 @@ def _materialize(files: Mapping[str, Source], docs_dir: Path) -> None:
         if target.parent not in created:
             target.parent.mkdir(parents=True, exist_ok=True)
             created.add(target.parent)
+        if (text := rewritten.get(rel_path)) is not None:
+            target.write_text(text, encoding="utf-8")
+            continue
         try:
             os.link(source.path, target)
         except OSError:
