@@ -5,17 +5,19 @@ links, a single navigation and one global search. It fills the gap left by the
 [mkdocs-monorepo-plugin](https://github.com/backstage/mkdocs-monorepo-plugin) until Zensical ships
 [an official solution](https://github.com/zensical/backlog/issues/22).
 
-!!! warning "Work in progress"
-
-    zmerge is in early development and is not feature complete yet.
-
 ## Installation
 
 ```bash
 uv tool install zmerge
 ```
 
-## Usage
+To render API docs with [mkdocstrings](https://mkdocstrings.github.io/), install `mkdocstrings-python` alongside:
+
+```bash
+uv tool install zmerge --with mkdocstrings-python
+```
+
+## Quick start
 
 Create an umbrella project with a regular `zensical.toml` and include other projects in its `nav`, just like with the
 mkdocs-monorepo-plugin:
@@ -23,98 +25,57 @@ mkdocs-monorepo-plugin:
 ```toml
 [project]
 site_name = "My projects"
+site_url = "https://example.github.io/"
 nav = [
   { Home = "index.md" },
   { lev = "!include ../lev/zensical.toml" },
-  { dame = "!include ../dame-rs" },  # a directory containing a zensical.toml works, too
+  { dame = "!include git+https://github.com/KarelZe/dame-rs.git" },
 ]
+
+[project.markdown_extensions.admonition]
+[project.markdown_extensions.toc]
+permalink = true
 ```
 
-Then build the merged site:
+Build the merged site into `site/`:
 
 ```bash
 zmerge build --strict
 ```
 
-Each project is mounted below a prefix derived from its nav title (`lev/`, `dame/`). Override it with a
-`[zmerge.projects.<id>]` table, where `<id>` is the slug of the nav title:
-
-```toml
-[zmerge.projects.dame]
-prefix = "engines/dame"
-```
-
-Projects without a `nav` get one generated from their folder structure. Includes can be nested.
-
-`zmerge build` writes the merged project to `.zmerge.toml` and `.zmerge/` next to the umbrella configuration and builds
-it with `zensical build`. Add both to your `.gitignore`. Use `zmerge assemble` to only write the merged project.
-
-To preview the merged site, run:
+Or preview it, re-assembling it whenever a project changes:
 
 ```bash
 zmerge serve
 ```
 
-It serves the site with `zensical serve` and re-assembles it whenever the configuration or docs of the umbrella site or
-a project change. Assembling is incremental, so only changed files are touched.
+Add `.zmerge/` and `.zmerge.toml` to your `.gitignore`.
 
-### Projects from git repositories
+!!! example "Example"
 
-Include a project straight from its git repository, using the syntax known from pip:
-
-```toml
-nav = [
-  { lev = "!include git+https://github.com/KarelZe/lev.git" },
-  { dame = "!include git+https://github.com/KarelZe/dame-rs.git@main" },
-  { docs = "!include git+https://github.com/me/mono.git@v1.0#subdirectory=packages/docs" },
-]
-```
-
-The ref (branch, tag or commit) defaults to the default branch. `subdirectory` points to the folder containing the
-`zensical.toml`. Repositories are fetched shallowly into `.zmerge/repos` and updated on every run; pass `--no-fetch` to
-reuse them, e.g. when offline. `zmerge serve` only fetches at startup. git uses your usual credentials.
-
-## Configuration of the projects
-
-The umbrella configuration owns everything that affects the site as a whole, like `site_name`, `site_url`, `theme`,
-`extra` and `validation`. From each project, zmerge takes what its pages need to render:
-
-| Setting | Merge behaviour |
-| --- | --- |
-| `markdown_extensions` | Combined. The umbrella's extensions come first, followed by those only the projects use. |
-| `plugins` | Combined, e.g. `search`, `tags` or `mkdocstrings`. |
-| `mkdocstrings` handlers | `paths` of all projects are combined and rebased onto the umbrella. Handler `options` that differ from the merged ones are written into the project's `:::` directives, so each project renders as when built on its own. |
-| `pymdownx.snippets` | `base_path` of all projects are combined. Snippets are resolved against the base paths of their project. |
-| `extra_css`, `extra_javascript` | Local files are moved below the project prefix, duplicates are removed. |
-| `exclude_docs`, `draft_docs`, `not_in_nav` | Patterns are anchored at the project prefix. |
-
-Options are combined key by key. If projects set different values for the same option of an extension or plugin,
-the first one wins and zmerge prints a warning.
-Zensical's default markdown extensions can't be combined with explicit ones, so define `markdown_extensions` in every
-project, including the umbrella. `zmerge build --strict` treats zmerge's warnings like Zensical's and aborts.
-
-!!! tip "API docs with mkdocstrings"
-
-    Install `mkdocstrings-python` next to zmerge, e.g. `uvx --with mkdocstrings-python zmerge build`. Packages are
-    found through the handler `paths` of each project (default: the project root). If a project relies on its package
-    being installed instead, install it into the same environment or set `paths` in the project.
-
-## Links
-
-Links within a project keep working, because each project keeps its folder structure below its prefix. zmerge rewrites
-two kinds of links:
-
-- **Links between projects.** Link to another project with the absolute URL of its published site, e.g.
-  `https://karelze.github.io/dame-rs/design/#opening-book`. The link works when the project is built on its own. When
-  merged, zmerge turns every link into the `site_url` of the umbrella or a project into a relative link to the merged
-  page, e.g. `../dame/design.md#opening-book`, so Zensical validates it, anchors included.
-- **Links leaving a project's docs**, e.g. `../LICENSE`, become links to the file in the project's repository, built
-  from `repo_url` and `edit_uri`.
-
-Links in code blocks and inline code are left untouched.
+    [examples/karelze](https://github.com/KarelZe/zmerge/tree/main/examples/karelze) merges the docs of
+    [lev](https://github.com/KarelZe/lev) and [dame-rs](https://github.com/KarelZe/dame-rs) straight from GitHub.
+    See the [result](https://karelze.github.io/zmerge/example/).
 
 ## How it works
 
-zmerge needs no custom Zensical. It assembles the documentation of all projects into a single, regular Zensical
-project and builds it once with `zensical build`, so links can be validated across projects and the search index
-covers every page.
+zmerge needs no custom Zensical and no plugins:
+
+1. It reads the umbrella configuration and every included project, from local paths or git repositories.
+2. It assembles a single, regular Zensical project next to the umbrella configuration: `.zmerge/docs` holds the docs of
+   all projects below their prefix (hardlinked, not copied), and `.zmerge.toml` holds the merged configuration and
+   navigation.
+3. It rewrites what wouldn't work in the merged site: links between projects, links leaving a project's docs, and
+   mkdocstrings and snippets settings that differ between projects.
+4. It builds the merged project once with `zensical build`. As it is one build, there is one search index, and
+   Zensical validates every link across projects.
+
+Re-assembling is incremental and takes a few milliseconds, so it adds next to nothing to a Zensical build.
+
+## Next steps
+
+- [Configuration](configuration.md): includes, prefixes, git sources and how project settings are merged.
+- [Links](links.md): how to link between projects.
+- [Command line](cli.md): all commands and options.
+- [Migrating from mkdocs-monorepo-plugin](migrating.md).
+- [Limitations](limitations.md): what's not supported (yet).
