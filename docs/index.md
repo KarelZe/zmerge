@@ -47,8 +47,16 @@ prefix = "engines/dame"
 Projects without a `nav` get one generated from their folder structure. Includes can be nested.
 
 `zmerge build` writes the merged project to `.zmerge.toml` and `.zmerge/` next to the umbrella configuration and builds
-it with `zensical build`. Add both to your `.gitignore`. Use `zmerge assemble` to only write the merged project, e.g.
-to run `zensical serve -f .zmerge.toml` yourself.
+it with `zensical build`. Add both to your `.gitignore`. Use `zmerge assemble` to only write the merged project.
+
+To preview the merged site, run:
+
+```bash
+zmerge serve
+```
+
+It serves the site with `zensical serve` and re-assembles it whenever the configuration or docs of the umbrella site or
+a project change. Assembling is incremental, so only changed files are touched.
 
 ## Configuration of the projects
 

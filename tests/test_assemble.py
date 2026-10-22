@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import tomllib
 from typing import TYPE_CHECKING
 from unittest import mock
@@ -170,3 +171,62 @@ def test_umbrella_nav_may_point_into_projects(make_project: Callable[..., Path])
     assemble(load_site(umbrella))
 
     assert read_generated(umbrella)["nav"] == [{"Start": "lev/index.md"}, {"Sec": [{"lev": ["lev/index.md"]}]}]
+
+
+def test_assemble_is_incremental(make_project: Callable[..., Path]) -> None:
+    files = {
+        "index.md": "# lev\n",
+        "link.md": "[d](https://example.org/dame/)\n",
+        "old/page.md": "# Old\n",
+        "edited.md": "# v1\n",
+    }
+    nav = ["index.md", "link.md", "edited.md"]
+    lev = make_project("lev", {"site_url": "https://example.org/lev/", "nav": nav}, files=files)
+    make_project("dame", {"site_url": "https://example.org/dame/"})
+    umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}, {"dame": "!include ../dame"}]})
+    first = assemble(load_site(umbrella))
+    docs = first.docs_dir
+    before = {p: (docs / p).stat().st_ino for p in ("lev/index.md", "lev/link.md")}
+    config_mtime = first.config_file.stat().st_mtime_ns
+
+    # Editors often save by replacing the file, which breaks the hardlink.
+    source = lev.parent / "docs"
+    (source / "edited.new").write_text("# v2\n", encoding="utf-8")
+    (source / "edited.new").replace(source / "edited.md")
+    shutil.rmtree(source / "old")
+    second = assemble(load_site(umbrella))
+
+    assert {p: (docs / p).stat().st_ino for p in before} == before
+    assert second.config_file.stat().st_mtime_ns == config_mtime
+    assert (docs / "lev" / "edited.md").read_text(encoding="utf-8") == "# v2\n"
+    assert (docs / "lev" / "edited.md").samefile(source / "edited.md")
+    assert not (docs / "lev" / "old").exists()
+    assert (docs / "lev" / "link.md").read_text(encoding="utf-8") == "[d](../dame/index.md)\n"
+
+
+def test_assemble_replaces_files_and_directories(make_project: Callable[..., Path]) -> None:
+    lev = make_project("lev", files={"index.md": "# lev\n", "a.md": "# A\n", "b/index.md": "# B\n"})
+    umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}]})
+    assemble(load_site(umbrella))
+    source = lev.parent / "docs"
+    (source / "a.md").unlink()
+    (source / "a.md").mkdir()
+    (source / "a.md" / "index.md").write_text("# A dir\n", encoding="utf-8")
+    shutil.rmtree(source / "b")
+    (source / "b").write_text("b", encoding="utf-8")
+
+    assembly = assemble(load_site(umbrella))
+
+    assert (assembly.docs_dir / "lev" / "a.md" / "index.md").read_text(encoding="utf-8") == "# A dir\n"
+    assert (assembly.docs_dir / "lev" / "b").read_text(encoding="utf-8") == "b"
+
+
+def test_copies_are_refreshed_when_the_source_changes(make_project: Callable[..., Path]) -> None:
+    lev = make_project("lev")
+    umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}]})
+    with mock.patch("os.link", side_effect=OSError("no links")):
+        assemble(load_site(umbrella))
+        (lev.parent / "docs" / "index.md").write_text("# lev, longer\n", encoding="utf-8")
+        assembly = assemble(load_site(umbrella))
+
+    assert (assembly.docs_dir / "lev" / "index.md").read_text(encoding="utf-8") == "# lev, longer\n"

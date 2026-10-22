@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from zmerge import __version__
 from zmerge.assemble import assemble
 from zmerge.config import ZmergeError, load_site
+from zmerge.serve import serve
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -52,6 +53,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     build.add_argument("-s", "--strict", action="store_true", help="abort on zmerge or Zensical warnings")
     build.add_argument("-c", "--clean", action="store_true", help="clean the Zensical build cache")
+    serve = commands.add_parser(
+        "serve",
+        parents=[config],
+        help="serve the merged site and re-assemble it on changes",
+        description="Serve the merged site with `zensical serve` and re-assemble it when a project changes.",
+    )
+    serve.add_argument("-a", "--dev-addr", metavar="IP:PORT", help="IP address and port (default: localhost:8000)")
+    serve.add_argument("-o", "--open", action="store_true", help="open the preview in the default browser")
     return parser
 
 
@@ -69,6 +78,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command is None:
         parser.print_help()
         return 0
+    if args.command == "serve":
+        zensical_args = ["--dev-addr", args.dev_addr] * bool(args.dev_addr) + ["--open"] * args.open
+        try:
+            return serve(args.config_file, zensical_args)
+        except ZmergeError as e:
+            print(f"zmerge: error: {e}", file=sys.stderr)
+            return 1
     try:
         site = load_site(args.config_file)
         assembly = assemble(site)
