@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/KarelZe/zmerge/compare/0.1.1...0.1.2) (2026-10-22)
+
+
+### Documentation
+
+* use the umbrella emoji ☂️ ([#27](https://github.com/KarelZe/zmerge/issues/27)) ([e99a77d](https://github.com/KarelZe/zmerge/commit/e99a77d86a9772cc49a62cd0688eb59692770282))
+
 ## [0.1.1](https://github.com/KarelZe/zmerge/compare/0.1.0...0.1.1) (2026-10-22)
 
 
