@@ -1,11 +1,10 @@
 # Migrating from mkdocs-monorepo-plugin
 
-zmerge keeps the `!include` syntax of the [mkdocs-monorepo-plugin](https://github.com/backstage/mkdocs-monorepo-plugin),
-so migrating is mostly mechanical.
+zmerge keeps the `!include` syntax of the [mkdocs-monorepo-plugin](https://github.com/backstage/mkdocs-monorepo-plugin):
 
-1. Migrate the umbrella site and every project from `mkdocs.yml` to `zensical.toml`, e.g. with Zensical's
+1. Migrate the umbrella project and every project from `mkdocs.yml` to `zensical.toml`, e.g. with Zensical's
    [migration guide](https://zensical.org/docs/setup/basics/).
-2. Point the `!include` entries to the projects' `zensical.toml`, or their directories.
+2. Point the `!include` entries to the projects' `zensical.toml` or their directories.
 3. Remove `monorepo` from the plugins.
 4. Build with `zmerge build` instead of `mkdocs build`.
 
@@ -22,7 +21,7 @@ nav = [
 
 | mkdocs-monorepo-plugin | zmerge |
 | --- | --- |
-| A project's `site_name` is its URL prefix. | The prefix is the slug of the nav title, configurable with `[zmerge.projects.<id>] prefix`. |
+| A project's `site_name` is its URL prefix. | The [prefix](configuration.md#prefixes) is the slug of the nav title, configurable with `[zmerge.projects.<id>] prefix`. |
 | Nested includes are not supported. | Projects can include projects. |
 | Links between projects use paths of the merged site, which break when a project is built on its own. | Links between projects use the projects' published URLs and are rewritten when merging. |
 | Plugins and markdown extensions of projects are ignored. | They are merged, including per-project mkdocstrings options. |
