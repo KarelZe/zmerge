@@ -26,7 +26,7 @@ classifiers = [
   "Topic :: Software Development :: Documentation",
 ]
 
-dependencies = ["tomli-w>=1.2", "zensical>=0.0.39"]
+dependencies = ["pyyaml>=6.0", "tomli-w>=1.2", "zensical>=0.0.39"]
 
 [project.scripts]
 zmerge = "zmerge.cli:main"
@@ -37,7 +37,7 @@ zmerge = "zmerge.cli:main"
 "Bug Tracker" = "https://github.com/KarelZe/zmerge/issues"
 
 [dependency-groups]
-test = ["pytest", "pytest-cov"]
+test = ["mkdocstrings-python", "pytest", "pytest-cov"]
 docs = ["zensical"]
 dev = [
   { include-group = "test" },

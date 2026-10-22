@@ -59,11 +59,13 @@ The umbrella configuration owns everything that affects the site as a whole, lik
 | --- | --- |
 | `markdown_extensions` | Combined. The umbrella's extensions come first, followed by those only the projects use. |
 | `plugins` | Combined, e.g. `search`, `tags` or `mkdocstrings`. |
-| `mkdocstrings` handlers | `paths` of all projects are combined and rebased onto the umbrella. Other options are combined. |
+| `mkdocstrings` handlers | `paths` of all projects are combined and rebased onto the umbrella. Handler `options` that differ from the merged ones are written into the project's `:::` directives, so each project renders as when built on its own. |
+| `pymdownx.snippets` | `base_path` of all projects are combined. Snippets are resolved against the base paths of their project. |
 | `extra_css`, `extra_javascript` | Local files are moved below the project prefix, duplicates are removed. |
 | `exclude_docs`, `draft_docs`, `not_in_nav` | Patterns are anchored at the project prefix. |
 
-If projects set different options for the same extension or plugin, the first one wins and zmerge prints a warning.
+Options are combined key by key. If projects set different values for the same option of an extension or plugin,
+the first one wins and zmerge prints a warning.
 Zensical's default markdown extensions can't be combined with explicit ones, so define `markdown_extensions` in every
 project, including the umbrella. `zmerge build --strict` treats zmerge's warnings like Zensical's and aborts.
 

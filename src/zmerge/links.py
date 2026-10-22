@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Iterator, Mapping
 
     from zmerge.assemble import Source
     from zmerge.config import Project, Site
@@ -96,6 +96,21 @@ def rewrite_destinations(text: str, rewrite: Callable[[str], str]) -> str:
         ```
     """
     lines = text.splitlines(keepends=True)
+    for i, line in outside_fences(lines):
+        if "](" in line or "]:" in line:
+            lines[i] = _rewrite_line(line, rewrite)
+    return "".join(lines)
+
+
+def outside_fences(lines: list[str]) -> Iterator[tuple[int, str]]:
+    """Yield the lines that are not part of a fenced code block, including the fences.
+
+    Args:
+        lines: Lines of Markdown source.
+
+    Yields:
+        Index and content of every line outside of fenced code blocks.
+    """
     fence: str | None = None
     for i, line in enumerate(lines):
         if match := _FENCE.match(line):
@@ -105,9 +120,8 @@ def rewrite_destinations(text: str, rewrite: Callable[[str], str]) -> str:
             elif marker[0] == fence[0] and len(marker) >= len(fence) and not line[match.end() :].strip():
                 fence = None
             continue
-        if fence is None and ("](" in line or "]:" in line):
-            lines[i] = _rewrite_line(line, rewrite)
-    return "".join(lines)
+        if fence is None:
+            yield i, line
 
 
 def _rewrite_line(line: str, rewrite: Callable[[str], str]) -> str:

@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 import tomli_w
 
 from zmerge.config import Include, Link, Section, ZmergeError
+from zmerge.directives import rewrite_directives
 from zmerge.links import rewrite_links
 from zmerge.merge import merge_config
 
@@ -82,12 +83,14 @@ def assemble(site: Site) -> Assembly:
     files = collect_files(site)
     nav = _convert_nav(site.nav, prefix="", files=files, config_file=site.config_file)
 
+    merged = merge_config(site)
     rewritten, link_warnings = rewrite_links(site, files)
+    rewrite_directives(site, files, rewritten, merged)
     _materialize(files, docs_dir, rewritten)
     (staging / ".gitignore").write_text("*\n", encoding="utf-8")
 
-    config, warnings = merge_config(site)
-    warnings += link_warnings
+    config = merged.config
+    warnings = merged.warnings + link_warnings
     config["docs_dir"] = docs_dir.relative_to(site.root).as_posix()
     config["nav"] = nav
     config_file = site.root / GENERATED_CONFIG

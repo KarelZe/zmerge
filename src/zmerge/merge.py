@@ -4,7 +4,9 @@ The umbrella configuration owns everything that affects the site as a whole (``s
 From the projects, zmerge takes what their pages need to render:
 
 - ``markdown_extensions`` and ``plugins`` are combined. The umbrella wins on conflicting options.
-- ``mkdocstrings`` handler ``paths`` are rebased onto the umbrella, so API docs are still found.
+- ``mkdocstrings`` handler ``paths`` are rebased onto the umbrella, so API docs are still found. Handler options that
+  differ between projects are returned per project, to be written into the projects' ``:::`` directives.
+- ``pymdownx.snippets`` base paths of all projects are combined.
 - Local ``extra_css`` and ``extra_javascript`` files are moved below the project prefix.
 - ``exclude_docs``, ``draft_docs`` and ``not_in_nav`` patterns are anchored at the project prefix.
 """
@@ -12,7 +14,9 @@ From the projects, zmerge takes what their pages need to render:
 from __future__ import annotations
 
 import copy
+import dataclasses
 import re
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
 
@@ -28,20 +32,40 @@ _PATTERN_KEYS = ("exclude_docs", "draft_docs", "not_in_nav")
 _ASSET_KEYS = ("extra_css", "extra_javascript")
 # Python Markdown extension namespaces Zensical lets you write as nested tables, see `_convert_markdown_extensions`.
 _NAMESPACES = {"pymdownx": "blocks", "zensical": "extensions"}
+SNIPPETS = "pymdownx.snippets"
+_MISSING = object()
 
 
-def merge_config(site: Site) -> tuple[dict[str, Any], list[str]]:
+@dataclass
+class MergedConfig:
+    """The merged configuration.
+
+    Attributes:
+        config: The merged ``[project]`` table without ``nav`` and ``docs_dir``.
+        warnings: Settings that could not be merged.
+        directive_options: mkdocstrings handler options per project prefix and handler, which differ from the merged
+            handler options and must be set on the project's ``:::`` directives.
+        default_handler: The default mkdocstrings handler.
+    """
+
+    config: dict[str, Any]
+    warnings: list[str] = field(default_factory=list)
+    directive_options: dict[str, dict[str, dict[str, Any]]] = field(default_factory=dict)
+    default_handler: str = "python"
+
+
+def merge_config(site: Site) -> MergedConfig:
     """Merge the configurations of all projects into the umbrella configuration.
 
     Args:
         site: The umbrella site.
 
     Returns:
-        The merged ``[project]`` table without ``nav`` and ``docs_dir``, and warnings about settings that could not
-        be merged.
+        The merged configuration.
     """
     config = copy.deepcopy(dict(site.config))
-    warnings: list[str] = []
+    merged = MergedConfig(config=config)
+    warnings = merged.warnings
     projects = site.projects
 
     extensions = _merge_extensions(site, projects, warnings)
@@ -51,6 +75,9 @@ def merge_config(site: Site) -> tuple[dict[str, Any], list[str]]:
     plugins = _merge_plugins(site, projects, warnings)
     if plugins is not None:
         config["plugins"] = plugins
+        if "mkdocstrings" in plugins:
+            merged.default_handler = plugins["mkdocstrings"].get("default_handler", "python")
+            merged.directive_options = _directive_options(plugins["mkdocstrings"], projects, warnings)
 
     for key in _ASSET_KEYS:
         assets = _merge_assets(site, projects, key)
@@ -64,7 +91,7 @@ def merge_config(site: Site) -> tuple[dict[str, Any], list[str]]:
             config[key] = "\n".join(patterns) + "\n"
 
     config.pop("nav", None)
-    return config, warnings
+    return merged
 
 
 def normalize_extensions(value: object, *, config_file: Path) -> dict[str, dict[str, Any]]:
@@ -124,6 +151,7 @@ def _merge_extensions(site: Site, projects: list[Project], warnings: list[str]) 
 
     merged: dict[str, dict[str, Any]] = {}
     origin: dict[str, Path] = {}
+    base_paths: list[str] = []
     for config_file, config in sources:
         if "markdown_extensions" not in config:
             warnings.append(
@@ -132,15 +160,40 @@ def _merge_extensions(site: Site, projects: list[Project], warnings: list[str]) 
             )
             continue
         for name, options in normalize_extensions(config["markdown_extensions"], config_file=config_file).items():
+            if name == SNIPPETS:
+                options = dict(options)
+                for path in snippet_base_paths(options, root=config_file.parent):
+                    rebased = _rebase(path, site.root)
+                    if rebased not in base_paths:
+                        base_paths.append(rebased)
+                options.pop("base_path", None)
             if name not in merged:
-                merged[name] = options
+                merged[name] = dict(options)
                 origin[name] = config_file
-            elif merged[name] != options:
+            elif conflicts := _merge_options(merged[name], options):
                 warnings.append(
-                    f"{config_file}: options of markdown extension {name!r} differ from {origin[name]}; "
-                    f"using {merged[name]!r}"
+                    f"{config_file}: options {conflicts} of markdown extension {name!r} differ from {origin[name]}; "
+                    f"using {_subset(merged[name], conflicts)!r}"
                 )
+    if SNIPPETS in merged:
+        merged[SNIPPETS]["base_path"] = base_paths
     return merged
+
+
+def snippet_base_paths(options: Mapping[str, Any], *, root: Path) -> list[Path]:
+    """Return the absolute base paths of ``pymdownx.snippets``, assuming Zensical runs in ``root``.
+
+    Args:
+        options: Options of the extension.
+        root: Directory of the configuration file.
+
+    Returns:
+        The base paths; ``root`` if none are set.
+    """
+    base_path = options.get("base_path", ["."])
+    if isinstance(base_path, str):
+        base_path = [base_path]
+    return [(root / path).resolve() for path in base_path]
 
 
 def _normalize_plugins(value: object, *, config_file: Path) -> dict[str, dict[str, Any]]:
@@ -175,12 +228,27 @@ def _merge_plugins(site: Site, projects: list[Project], warnings: list[str]) -> 
                 _merge_mkdocstrings(merged.setdefault(name, {}), options, project, warnings)
             elif name not in merged:
                 merged[name] = options
-            elif merged[name] != options:
+            elif conflicts := _merge_options(merged[name], options):
                 warnings.append(
-                    f"{project.config_file}: options of plugin {name!r} differ from the merged site; "
-                    f"using {merged[name]!r}"
+                    f"{project.config_file}: options {conflicts} of plugin {name!r} differ from the merged site; "
+                    f"using {_subset(merged[name], conflicts)!r}"
                 )
     return merged
+
+
+def _merge_options(target: dict[str, Any], options: Mapping[str, Any]) -> list[str]:
+    """Add the options missing in ``target`` and return the names of options with conflicting values."""
+    conflicts = []
+    for key, value in options.items():
+        if key not in target:
+            target[key] = value
+        elif target[key] != value:
+            conflicts.append(key)
+    return conflicts
+
+
+def _subset(options: Mapping[str, Any], keys: list[str]) -> dict[str, Any]:
+    return {key: options[key] for key in keys}
 
 
 def _rebase_mkdocstrings(options: dict[str, Any], *, root: Path, umbrella_root: Path) -> None:
@@ -211,6 +279,11 @@ def _merge_mkdocstrings(
             for option, option_value in handler.items():
                 if option == "paths":
                     continue
+                if option == "options":
+                    # Differences are resolved per project, see `_directive_options`.
+                    for key, key_value in option_value.items():
+                        target.setdefault("options", {}).setdefault(key, key_value)
+                    continue
                 if option not in target:
                     target[option] = option_value
                 elif target[option] != option_value:
@@ -218,6 +291,58 @@ def _merge_mkdocstrings(
                         f"{project.config_file}: mkdocstrings `handlers.{name}.{option}` differs from the merged site; "
                         f"using {target[option]!r}"
                     )
+
+
+def _directive_options(
+    mkdocstrings: Mapping[str, Any], projects: list[Project], warnings: list[str]
+) -> dict[str, dict[str, dict[str, Any]]]:
+    """Compute the handler options each project needs on its directives to render as when built on its own."""
+    handlers = mkdocstrings.get("handlers", {})
+    result: dict[str, dict[str, dict[str, Any]]] = {}
+    for project in projects:
+        plugins = _normalize_plugins(project.config.get("plugins", {}), config_file=project.config_file)
+        if "mkdocstrings" not in plugins:
+            continue
+        own_handlers = plugins["mkdocstrings"].get("handlers", {})
+        for name, handler in handlers.items():
+            merged_options = handler.get("options", {})
+            own = own_handlers.get(name, {}).get("options", {})
+            overrides = {key: value for key, value in own.items() if merged_options.get(key, _MISSING) != value}
+            for key in merged_options.keys() - own.keys():
+                default = _handler_default(name, key)
+                if default is _MISSING:
+                    warnings.append(
+                        f"{project.config_file}: cannot determine the default of mkdocstrings option "
+                        f"`handlers.{name}.options.{key}`; using {merged_options[key]!r}"
+                    )
+                else:
+                    overrides[key] = default
+            if overrides:
+                result.setdefault(project.prefix, {})[name] = overrides
+    return result
+
+
+def _handler_default(handler: str, key: str) -> object:
+    """Return the default of a handler option, or ``_MISSING`` if it is unknown."""
+    if handler != "python":
+        return _MISSING
+    try:
+        from mkdocstrings_handlers.python import PythonOptions
+    except ImportError:
+        return _MISSING
+    names = {f.name for f in dataclasses.fields(PythonOptions)}
+    value = getattr(PythonOptions(), key, _MISSING) if key in names else _MISSING
+    return value if _is_plain(value) else _MISSING
+
+
+def _is_plain(value: object) -> bool:
+    if value is None or isinstance(value, str | int | float | bool):
+        return True
+    if isinstance(value, list | tuple):
+        return all(_is_plain(v) for v in value)
+    if isinstance(value, dict):
+        return all(isinstance(k, str) and _is_plain(v) for k, v in value.items())
+    return False
 
 
 def _rebase(path: Path, root: Path) -> str:
