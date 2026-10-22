@@ -16,13 +16,14 @@ import os
 import posixpath
 import re
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import tomli_w
 
 from zmerge.config import Include, Link, Section, ZmergeError
+from zmerge.merge import merge_config
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -57,11 +58,13 @@ class Assembly:
         config_file: Path to the generated Zensical configuration.
         docs_dir: Path to the merged docs directory.
         files: Merged files, keyed by their POSIX path relative to ``docs_dir``.
+        warnings: Problems that did not prevent the merge, e.g. conflicting options.
     """
 
     config_file: Path
     docs_dir: Path
     files: Mapping[str, Source]
+    warnings: list[str] = field(default_factory=list)
 
 
 def assemble(site: Site) -> Assembly:
@@ -81,7 +84,7 @@ def assemble(site: Site) -> Assembly:
     _materialize(files, docs_dir)
     (staging / ".gitignore").write_text("*\n", encoding="utf-8")
 
-    config: dict[str, Any] = dict(site.config)
+    config, warnings = merge_config(site)
     config["docs_dir"] = docs_dir.relative_to(site.root).as_posix()
     config["nav"] = nav
     config_file = site.root / GENERATED_CONFIG
@@ -91,7 +94,7 @@ def assemble(site: Site) -> Assembly:
         ),
         encoding="utf-8",
     )
-    return Assembly(config_file=config_file, docs_dir=docs_dir, files=files)
+    return Assembly(config_file=config_file, docs_dir=docs_dir, files=files, warnings=warnings)
 
 
 def collect_files(site: Site) -> dict[str, Source]:

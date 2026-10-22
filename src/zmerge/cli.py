@@ -50,7 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="assemble and build the merged site with Zensical",
         description="Assemble the merged Zensical project and build it with `zensical build`.",
     )
-    build.add_argument("-s", "--strict", action="store_true", help="abort the build on warnings")
+    build.add_argument("-s", "--strict", action="store_true", help="abort on zmerge or Zensical warnings")
     build.add_argument("-c", "--clean", action="store_true", help="clean the Zensical build cache")
     return parser
 
@@ -75,10 +75,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ZmergeError as e:
         print(f"zmerge: error: {e}", file=sys.stderr)
         return 1
+    for warning in assembly.warnings:
+        print(f"zmerge: warning: {warning}", file=sys.stderr)
     if args.command == "assemble":
         print(assembly.config_file)
         return 0
 
+    if args.strict and assembly.warnings:
+        print("zmerge: aborted because --strict is set", file=sys.stderr)
+        return 1
     command = [sys.executable, "-m", "zensical", "build", "--config-file", str(assembly.config_file)]
     command += ["--strict"] * args.strict + ["--clean"] * args.clean
     return subprocess.run(command, cwd=site.root, check=False).returncode

@@ -74,3 +74,16 @@ def test_build_strict_fails_on_broken_links(make_project: Callable[..., Path]) -
     umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}]})
 
     assert main(["build", "--strict", "-f", str(umbrella)]) != 0
+
+
+def test_build_strict_aborts_on_zmerge_warnings(
+    make_project: Callable[..., Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    make_project("lev", {"plugins": {"tags": {"listings": True}}})
+    make_project("dame", {"plugins": {"tags": {"listings": False}}})
+    umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}, {"dame": "!include ../dame"}]})
+
+    assert main(["build", "--strict", "-f", str(umbrella)]) == 1
+    err = capsys.readouterr().err
+    assert "zmerge: warning:" in err
+    assert "aborted because --strict is set" in err

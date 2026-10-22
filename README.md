@@ -53,6 +53,28 @@ Projects without a `nav` get one generated from their folder structure. Includes
 it with `zensical build`. Add both to your `.gitignore`. Use `zmerge assemble` to only write the merged project, e.g.
 to run `zensical serve -f .zmerge.toml` yourself.
 
+## Configuration of the projects
+
+The umbrella configuration owns everything that affects the site as a whole, like `site_name`, `site_url`, `theme`,
+`extra` and `validation`. From each project, zmerge takes what its pages need to render:
+
+| Setting | Merge behaviour |
+| --- | --- |
+| `markdown_extensions` | Combined. The umbrella's extensions come first, followed by those only the projects use. |
+| `plugins` | Combined, e.g. `search`, `tags` or `mkdocstrings`. |
+| `mkdocstrings` handlers | `paths` of all projects are combined and rebased onto the umbrella. Other options are combined. |
+| `extra_css`, `extra_javascript` | Local files are moved below the project prefix, duplicates are removed. |
+| `exclude_docs`, `draft_docs`, `not_in_nav` | Patterns are anchored at the project prefix. |
+
+If projects set different options for the same extension or plugin, the first one wins and zmerge prints a warning.
+Zensical's default markdown extensions can't be combined with explicit ones, so define `markdown_extensions` in every
+project, including the umbrella. `zmerge build --strict` treats zmerge's warnings like Zensical's and aborts.
+
+> [!TIP]
+> **API docs with mkdocstrings:** Install `mkdocstrings-python` next to zmerge, e.g. `uvx --with mkdocstrings-python zmerge build`. Packages are
+> found through the handler `paths` of each project (default: the project root). If a project relies on its package
+> being installed instead, install it into the same environment or set `paths` in the project.
+
 ## How it works
 
 zmerge needs no custom Zensical. It assembles the documentation of all projects into a single, regular Zensical
