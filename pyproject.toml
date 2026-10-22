@@ -26,7 +26,7 @@ classifiers = [
   "Topic :: Software Development :: Documentation",
 ]
 
-dependencies = ["tomli-w>=1.2", "zensical>=0.0.39"]
+dependencies = ["pyyaml>=6.0", "tomli-w>=1.2", "zensical>=0.0.39"]
 
 [project.scripts]
 zmerge = "zmerge.cli:main"
@@ -37,7 +37,7 @@ zmerge = "zmerge.cli:main"
 "Bug Tracker" = "https://github.com/KarelZe/zmerge/issues"
 
 [dependency-groups]
-test = ["pytest", "pytest-cov"]
+test = ["mkdocstrings-python", "pytest", "pytest-cov"]
 docs = ["zensical"]
 dev = [
   { include-group = "test" },
@@ -99,15 +99,19 @@ select = [
   "W",    # PyCodeStyle warnings
 ]
 
-ignore = ["D203", "D212", "E501"]
+ignore = ["D203", "D212", "DOC502", "E501"]
 
 preview = true
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["D100", "D103"]
+"tests/*" = ["D"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.ruff.lint.pydoclint]
+# Short helpers document their behaviour in one line.
+ignore-one-line-docstrings = true
 
 [tool.ruff.lint.isort]
 known-first-party = ["zmerge"]

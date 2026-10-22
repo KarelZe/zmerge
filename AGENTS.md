@@ -42,8 +42,20 @@ Speed matters: prefer hardlinks over copies and only rewrite files that need cha
 
 ## Project Structure
 - `src/zmerge/` — Python package
-- `tests/` — pytest suite
+  - `config.py` — load the umbrella config and resolve `!include`s
+  - `sources.py` — fetch projects from git repositories
+  - `assemble.py` — collect files, build the nav and sync `.zmerge/` incrementally
+  - `merge.py` — merge markdown extensions, plugins, assets and patterns
+  - `links.py` — rewrite links between projects and out of the docs
+  - `directives.py` — per-project mkdocstrings options and snippet paths
+  - `serve.py` — `zmerge serve`
+  - `cli.py` — command line interface
+- `tests/` — pytest suite, incl. end-to-end builds with Zensical
 - `docs/` — Zensical documentation source
+- `examples/karelze/` — example umbrella site merging lev and dame-rs from GitHub, built in the docs workflow
+
+## Unsupported features
+Track missing features as GitHub issues with the `backlog` label and list them in `docs/limitations.md`.
 
 ## PR Guidelines
 - Keep diffs small and focused

@@ -7,7 +7,14 @@ repo_url = "https://github.com/KarelZe/zmerge"
 repo_name = "KarelZe/zmerge"
 edit_uri = "edit/main/docs/"
 
-nav = [{ Home = "index.md" }]
+nav = [
+  { Home = "index.md" },
+  { Configuration = "configuration.md" },
+  { Links = "links.md" },
+  { "Command line" = "cli.md" },
+  { "Migrating from mkdocs-monorepo-plugin" = "migrating.md" },
+  { Limitations = "limitations.md" },
+]
 
 [project.theme]
 variant = "modern"
