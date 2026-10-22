@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/KarelZe/zmerge/compare/0.1.0...0.1.1) (2026-10-22)
+
+
+### Documentation
+
+* tighten the docs and explain generated files 📝 ([3e0c9e0](https://github.com/KarelZe/zmerge/commit/3e0c9e0e6d269fc86603e39a1370be9ef6f66274))
+
 ## 0.1.0 (2026-10-22)
 
 
