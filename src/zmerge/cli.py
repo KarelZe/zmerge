@@ -38,6 +38,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path("zensical.toml"),
         help="umbrella configuration (default: %(default)s)",
     )
+    config.add_argument(
+        "--no-fetch",
+        dest="fetch",
+        action="store_false",
+        help="reuse fetched git repositories instead of updating them",
+    )
 
     commands.add_parser(
         "assemble",
@@ -81,12 +87,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "serve":
         zensical_args = ["--dev-addr", args.dev_addr] * bool(args.dev_addr) + ["--open"] * args.open
         try:
-            return serve(args.config_file, zensical_args)
+            return serve(args.config_file, zensical_args, update=args.fetch)
         except ZmergeError as e:
             print(f"zmerge: error: {e}", file=sys.stderr)
             return 1
     try:
-        site = load_site(args.config_file)
+        site = load_site(args.config_file, update=args.fetch)
         assembly = assemble(site)
     except ZmergeError as e:
         print(f"zmerge: error: {e}", file=sys.stderr)

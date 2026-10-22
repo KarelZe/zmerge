@@ -74,6 +74,7 @@ def serve(
     config_file: Path,
     zensical_args: Sequence[str] = (),
     *,
+    update: bool = True,
     interval: float = 0.5,
     sleep: Callable[[float], None] = time.sleep,
 ) -> int:
@@ -82,13 +83,14 @@ def serve(
     Args:
         config_file: Path to the umbrella configuration.
         zensical_args: Additional arguments for ``zensical serve``.
+        update: Whether to update fetched git repositories at startup. They are never fetched on changes.
         interval: Seconds between checks for changes.
         sleep: Function to wait between checks.
 
     Returns:
         The exit code of ``zensical serve``. A ``ZmergeError`` of the initial merge is propagated.
     """
-    site = load_site(config_file)
+    site = load_site(config_file, update=update)
     assembly = assemble(site)
     _report(assembly.warnings)
     command = [sys.executable, "-m", "zensical", "serve", "--config-file", str(assembly.config_file), *zensical_args]
@@ -113,7 +115,7 @@ def serve(
                 continue
             state = current
             try:
-                site = load_site(config_file)
+                site = load_site(config_file, update=False)
                 assembly = assemble(site)
             except ZmergeError as e:
                 print(f"zmerge: error: {e}", file=sys.stderr)

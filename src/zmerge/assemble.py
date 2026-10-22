@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 import tomli_w
 
-from zmerge.config import Include, Link, Section, ZmergeError
+from zmerge.config import STAGING_DIR, Include, Link, Section, ZmergeError
 from zmerge.directives import rewrite_directives
 from zmerge.links import rewrite_links
 from zmerge.merge import merge_config
@@ -35,7 +35,6 @@ if TYPE_CHECKING:
 
     from zmerge.config import NavItem, Project, Site
 
-STAGING_DIR = ".zmerge"
 GENERATED_CONFIG = ".zmerge.toml"
 
 _URL = re.compile(r"^(?:[a-zA-Z][a-zA-Z0-9+.-]*:|/|#)")

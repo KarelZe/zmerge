@@ -58,6 +58,22 @@ zmerge serve
 It serves the site with `zensical serve` and re-assembles it whenever the configuration or docs of the umbrella site or
 a project change. Assembling is incremental, so only changed files are touched.
 
+### Projects from git repositories
+
+Include a project straight from its git repository, using the syntax known from pip:
+
+```toml
+nav = [
+  { lev = "!include git+https://github.com/KarelZe/lev.git" },
+  { dame = "!include git+https://github.com/KarelZe/dame-rs.git@main" },
+  { docs = "!include git+https://github.com/me/mono.git@v1.0#subdirectory=packages/docs" },
+]
+```
+
+The ref (branch, tag or commit) defaults to the default branch. `subdirectory` points to the folder containing the
+`zensical.toml`. Repositories are fetched shallowly into `.zmerge/repos` and updated on every run; pass `--no-fetch` to
+reuse them, e.g. when offline. `zmerge serve` only fetches at startup. git uses your usual credentials.
+
 ## Configuration of the projects
 
 The umbrella configuration owns everything that affects the site as a whole, like `site_name`, `site_url`, `theme`,

@@ -25,21 +25,21 @@ import unicodedata
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from zmerge.errors import ZmergeError
+from zmerge.sources import GIT_PREFIX, REPOS_DIR, GitSource, fetch
+
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
     from pathlib import Path
 
 INCLUDE = "!include"
 CONFIG_FILE_NAME = "zensical.toml"
+STAGING_DIR = ".zmerge"
 
 _PROJECT_OPTIONS = frozenset({"prefix"})
 _SEGMENT = re.compile(r"[A-Za-z0-9_][A-Za-z0-9._-]*")
 # Zensical always excludes these directories from the docs, see `crates/zensical/src/config/inclusion.rs`.
 _RESERVED_SEGMENTS = frozenset({"templates"})
-
-
-class ZmergeError(Exception):
-    """Raised for invalid configurations and failed merges."""
 
 
 @dataclass(frozen=True)
@@ -156,11 +156,12 @@ def slugify(title: str) -> str:
     return re.sub(r"[^a-z0-9._]+", "-", ascii_title.lower()).strip("-.")
 
 
-def load_site(config_file: Path) -> Site:
+def load_site(config_file: Path, *, update: bool = True) -> Site:
     """Load the umbrella configuration and all included projects.
 
     Args:
         config_file: Path to the umbrella ``zensical.toml``.
+        update: Whether to fetch projects from git repositories that were fetched before again.
 
     Returns:
         The umbrella site with all includes resolved.
@@ -172,7 +173,7 @@ def load_site(config_file: Path) -> Site:
     config, zmerge = _read_config(config_file)
     if "nav" not in config:
         raise ZmergeError(f"{config_file}: the umbrella site needs a `nav` with at least one `{INCLUDE}` entry")
-    loader = _Loader()
+    loader = _Loader(repos_dir=config_file.parent / STAGING_DIR / REPOS_DIR, update=update)
     nav = loader.nav(config["nav"], config_file=config_file, zmerge=zmerge, parent_prefix="")
     if not loader.prefixes:
         raise ZmergeError(f"{config_file}: the umbrella `nav` contains no `{INCLUDE}` entry")
@@ -224,9 +225,11 @@ def _validate_prefix(prefix: str, *, config_file: Path) -> str:
 class _Loader:
     """Resolve includes recursively while detecting cycles and duplicate prefixes."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, repos_dir: Path, update: bool) -> None:
         self.prefixes: dict[str, Path] = {}
         self._ancestors: list[Path] = []
+        self._repos_dir = repos_dir
+        self._update = update
 
     def nav(
         self, raw: object, *, config_file: Path, zmerge: Mapping[str, Any], parent_prefix: str
@@ -311,7 +314,13 @@ class _Loader:
     def _include_file(self, path: str, *, config_file: Path) -> Path:
         if not path:
             raise ZmergeError(f"{config_file}: `{INCLUDE}` needs a path")
-        include_file = (config_file.parent / path).resolve()
+        if path.startswith(GIT_PREFIX):
+            try:
+                include_file = fetch(GitSource.parse(path), self._repos_dir, update=self._update).resolve()
+            except ZmergeError as e:
+                raise ZmergeError(f"{config_file}: {e}") from None
+        else:
+            include_file = (config_file.parent / path).resolve()
         if include_file.is_dir():
             include_file /= CONFIG_FILE_NAME
         if include_file.suffix != ".toml":
