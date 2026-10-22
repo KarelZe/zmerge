@@ -1,4 +1,4 @@
-# zmerge 📚
+# zmerge ☂️
 
 [![PyPI](https://img.shields.io/pypi/v/zmerge)](https://pypi.org/project/zmerge/)
 [![Test](https://github.com/KarelZe/zmerge/actions/workflows/test.yml/badge.svg)](https://github.com/KarelZe/zmerge/actions/workflows/test.yml)
