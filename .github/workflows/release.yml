@@ -52,6 +52,8 @@ jobs:
   build:
     name: Build — wheel and sdist
     needs: version
+    # A skipped release-please job (manual runs) would otherwise skip all dependent jobs.
+    if: ${{ !cancelled() && needs.version.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -67,6 +69,7 @@ jobs:
   publish-test-pypi:
     name: Publish — Test PyPI
     needs: build
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     environment: test-pypi
     permissions:
@@ -86,6 +89,7 @@ jobs:
   publish-pypi:
     name: Publish — PyPI
     needs: publish-test-pypi
+    if: ${{ !cancelled() && needs.publish-test-pypi.result == 'success' }}
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -100,6 +104,7 @@ jobs:
   github-release:
     name: Attach distributions to GitHub Release
     needs: [version, build]
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
