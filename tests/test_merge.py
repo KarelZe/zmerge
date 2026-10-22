@@ -111,7 +111,13 @@ def test_mkdocstrings_paths_are_rebased(two_projects: Callable[..., Site], tmp_p
     config, warnings = merge_config(site)
 
     python = config["plugins"]["mkdocstrings"]["handlers"]["python"]
-    assert python["paths"] == ["src", (tmp_path / "lev").as_posix(), (tmp_path / "dame" / "python").as_posix(), "/abs"]
+    absolute = (tmp_path / "/abs").resolve().as_posix()  # on the drive of the project on Windows
+    assert python["paths"] == [
+        "src",
+        (tmp_path / "lev").as_posix(),
+        (tmp_path / "dame" / "python").as_posix(),
+        absolute,
+    ]
     assert python["options"] == options
     assert config["plugins"]["mkdocstrings"]["default_handler"] == "python"
     (warning,) = warnings
