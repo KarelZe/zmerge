@@ -218,3 +218,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# zmerge staging
+.zmerge/
+.zmerge.toml

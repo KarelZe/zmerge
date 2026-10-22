@@ -7,13 +7,48 @@ links, a single navigation and one global search. It fills the gap left by the
 
 !!! warning "Work in progress"
 
-    zmerge is in early development and does not merge anything yet.
+    zmerge is in early development and is not feature complete yet.
 
 ## Installation
 
 ```bash
 uv tool install zmerge
 ```
+
+## Usage
+
+Create an umbrella project with a regular `zensical.toml` and include other projects in its `nav`, just like with the
+mkdocs-monorepo-plugin:
+
+```toml
+[project]
+site_name = "My projects"
+nav = [
+  { Home = "index.md" },
+  { lev = "!include ../lev/zensical.toml" },
+  { dame = "!include ../dame-rs" },  # a directory containing a zensical.toml works, too
+]
+```
+
+Then build the merged site:
+
+```bash
+zmerge build --strict
+```
+
+Each project is mounted below a prefix derived from its nav title (`lev/`, `dame/`). Override it with a
+`[zmerge.projects.<id>]` table, where `<id>` is the slug of the nav title:
+
+```toml
+[zmerge.projects.dame]
+prefix = "engines/dame"
+```
+
+Projects without a `nav` get one generated from their folder structure. Includes can be nested.
+
+`zmerge build` writes the merged project to `.zmerge.toml` and `.zmerge/` next to the umbrella configuration and builds
+it with `zensical build`. Add both to your `.gitignore`. Use `zmerge assemble` to only write the merged project, e.g.
+to run `zensical serve -f .zmerge.toml` yourself.
 
 ## How it works
 
