@@ -9,6 +9,10 @@ links, a single navigation and one global search. It fills the gap left by the
 [mkdocs-monorepo-plugin](https://github.com/backstage/mkdocs-monorepo-plugin) until Zensical ships
 [an official solution](https://github.com/zensical/backlog/issues/22).
 
+> [!NOTE]
+> zmerge is not affiliated with the Zensical project. It is purely meant as a temporary solution until Zensical ships
+> official support for merging projects, tracked in [zensical/backlog#22](https://github.com/zensical/backlog/issues/22).
+
 - **No custom Zensical, no plugins.** zmerge assembles one regular Zensical project and builds it with `zensical build`.
 - **One site.** One navigation, one global search, one link check across all projects.
 - **Links that work everywhere.** Links between projects use the projects' published URLs and are rewritten into
