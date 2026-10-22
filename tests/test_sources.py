@@ -130,5 +130,5 @@ def test_build_with_git_include(repo: Path, make_project: Callable[..., Path]) -
 def test_git_errors_name_the_config(make_project: Callable[..., Path], tmp_path: Path) -> None:
     umbrella = make_project("umbrella", {"nav": [{"lev": f"!include git+{(tmp_path / 'missing').as_uri()}"}]})
 
-    with pytest.raises(ZmergeError, match=r"umbrella/zensical\.toml: `git fetch"):
+    with pytest.raises(ZmergeError, match=r"umbrella[/\\]zensical\.toml: `git fetch"):
         load_site(umbrella)
