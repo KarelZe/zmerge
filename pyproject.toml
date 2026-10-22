@@ -6,7 +6,7 @@ build-backend = "uv_build"
 name = "zmerge"
 version = "0.1.1"
 authors = [{ name = "Markus Bilz", email = "github@markusbilz.com" }]
-description = "Merge the documentation of multiple Zensical projects into one site with working links and a global search 📚."
+description = "Merge the documentation of multiple Zensical projects into one site with working links and a global search ☂️."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
