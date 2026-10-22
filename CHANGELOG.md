@@ -5,7 +5,6 @@
 
 ### Documentation
 
-* tighten the docs and explain generated files 📝 ([b887d84](https://github.com/KarelZe/zmerge/commit/b887d84027ca06a1bbcef775c55ac7146008ea57))
 * tighten the docs and explain generated files 📝 ([3e0c9e0](https://github.com/KarelZe/zmerge/commit/3e0c9e0e6d269fc86603e39a1370be9ef6f66274))
 
 ## 0.1.0 (2026-10-22)
