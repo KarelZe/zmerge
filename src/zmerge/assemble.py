@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import tomli_w
+from pathspec import GitIgnoreSpec
 
 from zmerge.config import STAGING_DIR, Include, Link, Section, ZmergeError
 from zmerge.directives import rewrite_directives
@@ -86,8 +87,10 @@ def assemble(site: Site) -> Assembly:
     nav = _convert_nav(site.nav, prefix="", files=files, config_file=site.config_file)
 
     merged = merge_config(site)
-    rewritten, link_warnings = rewrite_links(site, files)
-    rewrite_directives(site, files, rewritten, merged)
+    # Zensical doesn't build excluded pages, so their links and directives don't matter.
+    excluded = excluded_pages(files, merged.config.get("exclude_docs"))
+    rewritten, link_warnings = rewrite_links(site, files, excluded=excluded)
+    rewrite_directives(site, files, rewritten, merged, excluded=excluded)
     _sync(files, docs_dir, rewritten)
     _write_if_changed(staging / ".gitignore", "*\n")
 
@@ -103,6 +106,26 @@ def assemble(site: Site) -> Assembly:
         ),
     )
     return Assembly(config_file=config_file, docs_dir=docs_dir, files=files, warnings=warnings)
+
+
+def excluded_pages(files: Mapping[str, Source], patterns: str | None) -> frozenset[str]:
+    r"""Return the merged paths matched by the gitignore-style ``exclude_docs`` patterns.
+
+    Args:
+        files: The merged files.
+        patterns: The merged ``exclude_docs`` setting.
+
+    Returns:
+        The excluded paths.
+
+    Examples:
+        >>> sorted(excluded_pages(dict.fromkeys(["a.md", "lev/a.md", "lev/b.md"]), "/lev/**/a.md\n"))
+        ['lev/a.md']
+    """
+    if not patterns:
+        return frozenset()
+    spec = GitIgnoreSpec.from_lines(patterns.splitlines())
+    return frozenset(path for path in files if spec.match_file(path))
 
 
 def collect_files(site: Site) -> dict[str, Source]:

@@ -19,7 +19,7 @@ from zmerge.links import outside_fences
 from zmerge.merge import SNIPPETS, normalize_extensions, snippet_base_paths
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Collection, Mapping
     from pathlib import Path
 
     from zmerge.assemble import Source
@@ -45,7 +45,12 @@ _SNIPPET_FILE = re.compile(
 
 
 def rewrite_directives(
-    site: Site, files: Mapping[str, Source], rewritten: dict[str, str], merged: MergedConfig
+    site: Site,
+    files: Mapping[str, Source],
+    rewritten: dict[str, str],
+    merged: MergedConfig,
+    *,
+    excluded: Collection[str] = (),
 ) -> None:
     """Rewrite the mkdocstrings directives and snippets of all project pages in place.
 
@@ -54,12 +59,13 @@ def rewrite_directives(
         files: The merged files.
         rewritten: New content of changed files, keyed by merged path. Updated in place.
         merged: The merged configuration.
+        excluded: Merged paths of pages to leave alone, e.g. pages excluded with ``exclude_docs``.
     """
     projects = {p.prefix: p for p in site.projects}
     snippet_paths = {prefix: _snippet_paths(project) for prefix, project in projects.items()}
     for path, source in files.items():
         project = projects.get(source.owner)
-        if project is None or not path.endswith(".md"):
+        if project is None or not path.endswith(".md") or path in excluded:
             continue
         options = merged.directive_options.get(project.prefix)
         base_paths = snippet_paths[project.prefix]
