@@ -3,9 +3,10 @@
 Two kinds of links are rewritten:
 
 - **Links between projects.** Projects link to each other with absolute URLs of their published sites, e.g.
-  ``https://example.org/datamodel/getting-started/#quick-start``. These links work when every project is built on its
-  own. In the merged site, they become relative links to the merged page, e.g.
-  ``../datamodel/getting-started.md#quick-start``, so Zensical validates them and they stay within the merged site.
+  ``https://example.org/typer/tutorial/first-steps/#the-simplest-example``. These links work when every project is
+  built on its own. In the merged site, they become relative links to the merged page, e.g.
+  ``../typer/tutorial/first-steps.md#the-simplest-example``, so Zensical validates them and they stay within the merged
+  site.
 - **Links leaving a project's docs.** Relative links like ``../LICENSE`` point outside the project's ``docs_dir``. In
   the merged site, they would resolve to unrelated files, so they become links to the file in the project's
   repository, derived from ``repo_url`` and ``edit_uri``.
@@ -221,14 +222,14 @@ def _candidates(path: str) -> list[str]:
     """Return the merged files a URL path may have been generated from.
 
     Examples:
-        >>> _candidates("datamodel/getting-started/")
-        ['datamodel/getting-started.md', 'datamodel/getting-started/index.md', 'datamodel/getting-started/README.md']
-        >>> _candidates("datamodel/getting-started.html")
-        ['datamodel/getting-started.md']
-        >>> _candidates("datamodel/index.html")
-        ['datamodel/index.md', 'datamodel/README.md']
-        >>> _candidates("datamodel/assets/app.png")
-        ['datamodel/assets/app.png']
+        >>> _candidates("dame/design/")
+        ['dame/design.md', 'dame/design/index.md', 'dame/design/README.md']
+        >>> _candidates("dame/design.html")
+        ['dame/design.md']
+        >>> _candidates("dame/index.html")
+        ['dame/index.md', 'dame/README.md']
+        >>> _candidates("dame/assets/app.png")
+        ['dame/assets/app.png']
     """
     path = path.lstrip("/")
     if not path or path.endswith("/"):

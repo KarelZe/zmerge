@@ -36,7 +36,7 @@ site_url = "https://example.github.io/"
 nav = [
   { Home = "index.md" },
   { lev = "!include ../lev/zensical.toml" },
-  { datamodel = "!include git+https://github.com/koxudaxi/datamodel-code-generator.git" },
+  { Typer = "!include git+https://github.com/fastapi/typer.git" },
 ]
 
 [project.markdown_extensions.admonition]
@@ -58,8 +58,9 @@ printf '.zmerge/\n.zmerge.toml\n' >> .gitignore
 ```
 
 Read the [documentation](https://karelze.github.io/zmerge/) for the configuration, links between projects and
-[limitations](https://karelze.github.io/zmerge/limitations/). [examples/demo](examples/demo) is a complete
-umbrella project that merges lev and datamodel-code-generator from GitHub.
+[limitations](https://karelze.github.io/zmerge/limitations/). The docs are built with zmerge themselves: their
+[example](https://karelze.github.io/zmerge/example/lev/) merges lev and Typer from GitHub, see
+[`zensical.toml`](zensical.toml).
 
 ## Development
 
@@ -67,7 +68,7 @@ umbrella project that merges lev and datamodel-code-generator from GitHub.
 uv sync
 uv run pytest
 uv run prek run --all-files
-uv run zensical serve
+uv run zmerge serve
 ```
 
 > [!WARNING]

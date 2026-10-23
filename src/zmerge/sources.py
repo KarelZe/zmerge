@@ -5,7 +5,7 @@ An include can point to a git repository instead of a local path, using the synt
 ```toml
 nav = [
   { lev = "!include git+https://github.com/KarelZe/lev.git" },
-  { datamodel = "!include git+https://github.com/koxudaxi/datamodel-code-generator.git@main" },
+  { Typer = "!include git+https://github.com/fastapi/typer.git@master" },
   { docs = "!include git+https://github.com/me/mono.git@v1.0#subdirectory=packages/docs" },
 ]
 ```

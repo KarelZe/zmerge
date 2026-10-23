@@ -16,7 +16,8 @@ Speed matters: prefer hardlinks over copies and only rewrite files that need cha
 - `uv run pytest`
 
 ## Documentation
-- Serve locally: `uv run zensical serve`, then access http://localhost:8000
+- Serve locally: `uv run zmerge serve`, then access http://localhost:8000. The docs merge lev and Typer from GitHub
+  (Example section), so this needs network access; `--no-fetch` reuses the fetched repositories.
 
 ## Code Style
 - `uv run ruff format .` and `uv run ruff check . --fix`
@@ -53,7 +54,6 @@ Speed matters: prefer hardlinks over copies and only rewrite files that need cha
   - `cli.py` — command line interface
 - `tests/` — pytest suite, incl. end-to-end builds with Zensical
 - `docs/` — Zensical documentation source
-- `examples/demo/` — example umbrella site merging lev and datamodel-code-generator from GitHub, built in the docs workflow
 
 ## Unsupported features
 Track missing features as GitHub issues with the `backlog` label and list them in `docs/limitations.md`.
