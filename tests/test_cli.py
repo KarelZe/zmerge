@@ -51,22 +51,26 @@ def test_invalid_config_reports_error(tmp_path: Path, capsys: pytest.CaptureFixt
 
 
 def test_build_merged_site(make_project: Callable[..., Path]) -> None:
-    make_project("lev", {"nav": [{"Home": "index.md"}]}, files={"index.md": "# lev\n\nSee [dame](../dame/index.md).\n"})
-    make_project("dame", files={"index.md": "# dame\n\n## Rules\n", "rules.md": "# Rules\n\n[Home](index.md#rules)\n"})
+    make_project(
+        "lev", {"nav": [{"Home": "index.md"}]}, files={"index.md": "# lev\n\nSee [datamodel](../datamodel/index.md).\n"}
+    )
+    make_project(
+        "datamodel", files={"index.md": "# datamodel\n\n## Rules\n", "rules.md": "# Rules\n\n[Home](index.md#rules)\n"}
+    )
     umbrella = make_project(
         "umbrella",
-        {"nav": [{"Home": "index.md"}, {"lev": "!include ../lev"}, {"dame": "!include ../dame"}]},
-        files={"index.md": "# Projects\n\n- [lev](lev/index.md)\n- [dame](dame/rules.md)\n"},
+        {"nav": [{"Home": "index.md"}, {"lev": "!include ../lev"}, {"datamodel": "!include ../datamodel"}]},
+        files={"index.md": "# Projects\n\n- [lev](lev/index.md)\n- [datamodel](datamodel/rules.md)\n"},
     )
 
     assert main(["build", "--strict", "-f", str(umbrella)]) == 0
 
     site = umbrella.parent / "site"
     assert (site / "lev" / "index.html").is_file()
-    assert (site / "dame" / "rules" / "index.html").is_file()
+    assert (site / "datamodel" / "rules" / "index.html").is_file()
     search = json.loads((site / "search.json").read_text(encoding="utf-8"))
     locations = {item["location"].split("/")[0] for item in search["items"]}
-    assert {"lev", "dame"} <= locations
+    assert {"lev", "datamodel"} <= locations
 
 
 def test_build_strict_fails_on_broken_links(make_project: Callable[..., Path]) -> None:
@@ -80,8 +84,8 @@ def test_build_strict_aborts_on_zmerge_warnings(
     make_project: Callable[..., Path], capsys: pytest.CaptureFixture[str]
 ) -> None:
     make_project("lev", {"plugins": {"tags": {"listings": True}}})
-    make_project("dame", {"plugins": {"tags": {"listings": False}}})
-    umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}, {"dame": "!include ../dame"}]})
+    make_project("datamodel", {"plugins": {"tags": {"listings": False}}})
+    umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}, {"datamodel": "!include ../datamodel"}]})
 
     assert main(["build", "--strict", "-f", str(umbrella)]) == 1
     err = capsys.readouterr().err

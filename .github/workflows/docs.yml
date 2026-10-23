@@ -33,12 +33,12 @@ jobs:
       - name: Build docs
         run: uv run --frozen --no-sync zensical build --strict
 
-      # End-to-end test: merge lev and dame-rs straight from GitHub, published next to the docs.
+      # End-to-end test: merge lev and datamodel-code-generator straight from GitHub, published next to the docs.
       - name: Build example
-        run: uv run --frozen --no-sync --with lev-rs zmerge build --strict -f examples/karelze/zensical.toml
+        run: uv run --frozen --no-sync --with lev-rs zmerge build --strict -f examples/demo/zensical.toml
 
       - name: Add example to the site
-        run: cp -r examples/karelze/site site/example
+        run: cp -r examples/demo/site site/example
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         if: github.event_name != 'pull_request'

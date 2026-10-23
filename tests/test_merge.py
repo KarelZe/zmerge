@@ -20,11 +20,13 @@ def unpack(merged: MergedConfig) -> tuple[dict[str, Any], list[str]]:
 
 @pytest.fixture
 def two_projects(make_project: Callable[..., Path]) -> Callable[..., Site]:
-    def factory(umbrella: dict[str, object], lev: dict[str, object], dame: dict[str, object] | None = None) -> Site:
+    def factory(
+        umbrella: dict[str, object], lev: dict[str, object], datamodel: dict[str, object] | None = None
+    ) -> Site:
         make_project("lev", lev)
-        make_project("dame", dame or {})
+        make_project("datamodel", datamodel or {})
         config_file = make_project(
-            "umbrella", {**umbrella, "nav": [{"lev": "!include ../lev"}, {"dame": "!include ../dame"}]}
+            "umbrella", {**umbrella, "nav": [{"lev": "!include ../lev"}, {"datamodel": "!include ../datamodel"}]}
         )
         return load_site(config_file)
 
@@ -116,7 +118,7 @@ def test_mkdocstrings_paths_are_rebased(two_projects: Callable[..., Site], tmp_p
     assert python["paths"] == [
         "src",
         (tmp_path / "lev").as_posix(),
-        (tmp_path / "dame" / "python").as_posix(),
+        (tmp_path / "datamodel" / "python").as_posix(),
         absolute,
     ]
     assert mkdocstrings["default_handler"] == merged.default_handler == "python"
@@ -140,9 +142,9 @@ def test_mkdocstrings_options_per_project(two_projects: Callable[..., Site]) -> 
     # lev doesn't set `heading_level`, so it gets mkdocstrings-python's default back.
     assert merged.directive_options == {
         "lev": {"python": {"heading_level": 2}},
-        "dame": {"python": {"show_source": True}},
+        "datamodel": {"python": {"show_source": True}},
     }
-    # The default of the unknown option `x` can't be restored for dame.
+    # The default of the unknown option `x` can't be restored for datamodel.
     (warning,) = merged.warnings
     assert "cannot determine the default of mkdocstrings option `handlers.python.options.x`" in warning
 
@@ -176,7 +178,7 @@ def test_snippet_base_paths_are_combined(two_projects: Callable[..., Site], tmp_
             ".",
             (tmp_path / "lev" / "docs").as_posix(),
             (tmp_path / "lev").as_posix(),
-            (tmp_path / "dame").as_posix(),
+            (tmp_path / "datamodel").as_posix(),
         ],
     }
     assert warnings == []
@@ -206,7 +208,7 @@ def test_extra_assets_are_prefixed_and_deduplicated(two_projects: Callable[..., 
     assert config["extra_javascript"] == [
         "lev/js/mathjax.js",
         mathjax,
-        {"path": "dame/js/mathjax.js"},
+        {"path": "datamodel/js/mathjax.js"},
         "/absolute.js",
     ]
 

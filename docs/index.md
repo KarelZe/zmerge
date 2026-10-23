@@ -29,7 +29,7 @@ site_url = "https://example.github.io/"
 nav = [
   { Home = "index.md" },
   { lev = "!include ../lev/zensical.toml" },
-  { dame = "!include git+https://github.com/KarelZe/dame-rs.git" },
+  { datamodel = "!include git+https://github.com/koxudaxi/datamodel-code-generator.git" },
 ]
 
 [project.markdown_extensions.admonition]
@@ -52,8 +52,9 @@ printf '.zmerge/\n.zmerge.toml\n' >> .gitignore
 
 !!! example
 
-    [examples/karelze](https://github.com/KarelZe/zmerge/tree/main/examples/karelze) merges the docs of
-    [lev](https://github.com/KarelZe/lev) and [dame-rs](https://github.com/KarelZe/dame-rs) from GitHub. See the
+    [examples/demo](https://github.com/KarelZe/zmerge/tree/main/examples/demo) merges the docs of
+    [lev](https://github.com/KarelZe/lev) and
+    [datamodel-code-generator](https://github.com/koxudaxi/datamodel-code-generator) from GitHub. See the
     [result](https://karelze.github.io/zmerge/example/).
 
 ## How it works

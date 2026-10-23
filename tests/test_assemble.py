@@ -176,14 +176,14 @@ def test_umbrella_nav_may_point_into_projects(make_project: Callable[..., Path])
 def test_assemble_is_incremental(make_project: Callable[..., Path]) -> None:
     files = {
         "index.md": "# lev\n",
-        "link.md": "[d](https://example.org/dame/)\n",
+        "link.md": "[d](https://example.org/datamodel/)\n",
         "old/page.md": "# Old\n",
         "edited.md": "# v1\n",
     }
     nav = ["index.md", "link.md", "edited.md"]
     lev = make_project("lev", {"site_url": "https://example.org/lev/", "nav": nav}, files=files)
-    make_project("dame", {"site_url": "https://example.org/dame/"})
-    umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}, {"dame": "!include ../dame"}]})
+    make_project("datamodel", {"site_url": "https://example.org/datamodel/"})
+    umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}, {"datamodel": "!include ../datamodel"}]})
     first = assemble(load_site(umbrella))
     docs = first.docs_dir
     before = {p: (docs / p).stat().st_ino for p in ("lev/index.md", "lev/link.md")}
@@ -201,7 +201,7 @@ def test_assemble_is_incremental(make_project: Callable[..., Path]) -> None:
     assert (docs / "lev" / "edited.md").read_text(encoding="utf-8") == "# v2\n"
     assert (docs / "lev" / "edited.md").samefile(source / "edited.md")
     assert not (docs / "lev" / "old").exists()
-    assert (docs / "lev" / "link.md").read_text(encoding="utf-8") == "[d](../dame/index.md)\n"
+    assert (docs / "lev" / "link.md").read_text(encoding="utf-8") == "[d](../datamodel/index.md)\n"
 
 
 def test_assemble_replaces_files_and_directories(make_project: Callable[..., Path]) -> None:

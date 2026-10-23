@@ -35,7 +35,7 @@ site_url = "https://example.github.io/"
 nav = [
   { Home = "index.md" },
   { lev = "!include ../lev/zensical.toml" },
-  { dame = "!include git+https://github.com/KarelZe/dame-rs.git" },
+  { datamodel = "!include git+https://github.com/koxudaxi/datamodel-code-generator.git" },
 ]
 
 [project.markdown_extensions.admonition]
@@ -57,8 +57,8 @@ printf '.zmerge/\n.zmerge.toml\n' >> .gitignore
 ```
 
 Read the [documentation](https://karelze.github.io/zmerge/) for the configuration, links between projects and
-[limitations](https://karelze.github.io/zmerge/limitations/). [examples/karelze](examples/karelze) is a complete
-umbrella project.
+[limitations](https://karelze.github.io/zmerge/limitations/). [examples/demo](examples/demo) is a complete
+umbrella project that merges lev and datamodel-code-generator from GitHub.
 
 ## Development
 

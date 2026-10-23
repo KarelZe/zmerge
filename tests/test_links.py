@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from zmerge.assemble import Assembly
 
 LEV = {"site_url": "https://example.org/lev/", "repo_url": "https://github.com/me/lev", "edit_uri": "edit/main/docs/"}
-DAME = {"site_url": "https://Example.org/dame-rs/"}
+DATAMODEL = {"site_url": "https://Example.org/datamodel-code-generator/"}
 
 
 @pytest.fixture
@@ -24,13 +24,20 @@ def merge(make_project: Callable[..., Path]) -> Callable[..., Assembly]:
     def factory(lev_files: dict[str, str], *, lev: dict[str, object] | None = None, umbrella_index: str = "# Home\n"):
         make_project("lev", LEV if lev is None else lev, files=lev_files)
         make_project(
-            "dame-rs",
-            DAME,
-            files={"index.md": "# dame\n", "design.md": "# Design\n\n## Opening book\n", "img/app.png": "png"},
+            "datamodel-code-generator",
+            DATAMODEL,
+            files={
+                "index.md": "# datamodel\n",
+                "getting-started.md": "# Getting started\n\n## Quick start\n",
+                "img/app.png": "png",
+            },
         )
         umbrella = make_project(
             "umbrella",
-            {"site_url": "https://example.org/", "nav": [{"lev": "!include ../lev"}, {"dame": "!include ../dame-rs"}]},
+            {
+                "site_url": "https://example.org/",
+                "nav": [{"lev": "!include ../lev"}, {"datamodel": "!include ../datamodel-code-generator"}],
+            },
             files={"index.md": umbrella_index},
         )
         return assemble(load_site(umbrella))
@@ -45,17 +52,23 @@ def staged(assembly: Assembly, path: str) -> str:
 @pytest.mark.parametrize(
     ("link", "expected"),
     [
-        ("https://example.org/dame-rs/design/#opening-book", "../../dame/design.md#opening-book"),
-        ("https://example.org/dame-rs/design", "../../dame/design.md"),
-        ("http://EXAMPLE.org/dame-rs/design.html", "../../dame/design.md"),
-        ("https://example.org/dame-rs/", "../../dame/index.md"),
-        ("https://example.org/dame-rs", "../../dame/index.md"),
-        ("https://example.org/dame-rs/index.html", "../../dame/index.md"),
-        ("https://example.org/dame-rs/img/app.png", "../../dame/img/app.png"),
+        (
+            "https://example.org/datamodel-code-generator/getting-started/#quick-start",
+            "../../datamodel/getting-started.md#quick-start",
+        ),
+        ("https://example.org/datamodel-code-generator/getting-started", "../../datamodel/getting-started.md"),
+        ("http://EXAMPLE.org/datamodel-code-generator/getting-started.html", "../../datamodel/getting-started.md"),
+        ("https://example.org/datamodel-code-generator/", "../../datamodel/index.md"),
+        ("https://example.org/datamodel-code-generator", "../../datamodel/index.md"),
+        ("https://example.org/datamodel-code-generator/index.html", "../../datamodel/index.md"),
+        ("https://example.org/datamodel-code-generator/img/app.png", "../../datamodel/img/app.png"),
         ("https://example.org/lev/", "../index.md"),
         ("https://example.org/", "../../index.md"),
         ("https://example.org/tclf/", "https://example.org/tclf/"),
-        ("https://other.org/dame-rs/design/", "https://other.org/dame-rs/design/"),
+        (
+            "https://other.org/datamodel-code-generator/getting-started/",
+            "https://other.org/datamodel-code-generator/getting-started/",
+        ),
         ("mailto:me@example.org", "mailto:me@example.org"),
         ("#anchor", "#anchor"),
         ("/absolute/", "/absolute/"),
@@ -70,21 +83,24 @@ def test_links_between_projects(merge: Callable[..., Assembly], link: str, expec
 
 
 def test_unmatched_link_into_project_site_warns(merge: Callable[..., Assembly]) -> None:
-    assembly = merge({"index.md": "[x](https://example.org/dame-rs/missing/)\n"})
+    assembly = merge({"index.md": "[x](https://example.org/datamodel-code-generator/missing/)\n"})
 
-    assert staged(assembly, "lev/index.md") == "[x](https://example.org/dame-rs/missing/)\n"
+    assert staged(assembly, "lev/index.md") == "[x](https://example.org/datamodel-code-generator/missing/)\n"
     (warning,) = assembly.warnings
     assert "matches no merged page" in warning
 
 
 def test_umbrella_pages_are_rewritten(merge: Callable[..., Assembly]) -> None:
-    assembly = merge({"index.md": "# lev\n"}, umbrella_index="[dame](https://example.org/dame-rs/design/)\n")
+    assembly = merge(
+        {"index.md": "# lev\n"},
+        umbrella_index="[datamodel](https://example.org/datamodel-code-generator/getting-started/)\n",
+    )
 
-    assert staged(assembly, "index.md") == "[dame](dame/design.md)\n"
+    assert staged(assembly, "index.md") == "[datamodel](datamodel/getting-started.md)\n"
 
 
 def test_code_is_left_untouched(merge: Callable[..., Assembly]) -> None:
-    url = "https://example.org/dame-rs/"
+    url = "https://example.org/datamodel-code-generator/"
     text = (
         f"`[a]({url})` and ``[b]({url})``\n\n"
         f"```md\n[c]({url})\n```\n\n"
@@ -94,24 +110,24 @@ def test_code_is_left_untouched(merge: Callable[..., Assembly]) -> None:
 
     assembly = merge({"index.md": text})
 
-    assert staged(assembly, "lev/index.md") == text.replace(f"[f]({url})", "[f](../dame/index.md)")
+    assert staged(assembly, "lev/index.md") == text.replace(f"[f]({url})", "[f](../datamodel/index.md)")
 
 
 def test_link_syntax_variants(merge: Callable[..., Assembly]) -> None:
-    url = "https://example.org/dame-rs/design/"
+    url = "https://example.org/datamodel-code-generator/getting-started/"
     text = (
         f"[![logo]({url}logo.png)]({url})\n"
         f'[t]({url} "Title") [p](<{url}>)\n'
-        f"[ref]: {url}#opening-book\n"
+        f"[ref]: {url}#quick-start\n"
         f"[(paren)](https://en.wikipedia.org/wiki/Foo_(bar))\n"
     )
 
     assembly = merge({"index.md": text})
 
     assert staged(assembly, "lev/index.md") == (
-        f"[![logo]({url}logo.png)](../dame/design.md)\n"
-        '[t](../dame/design.md "Title") [p](<../dame/design.md>)\n'
-        "[ref]: ../dame/design.md#opening-book\n"
+        f"[![logo]({url}logo.png)](../datamodel/getting-started.md)\n"
+        '[t](../datamodel/getting-started.md "Title") [p](<../datamodel/getting-started.md>)\n'
+        "[ref]: ../datamodel/getting-started.md#quick-start\n"
         "[(paren)](https://en.wikipedia.org/wiki/Foo_(bar))\n"
     )
     (warning,) = assembly.warnings  # logo.png does not exist
@@ -157,11 +173,11 @@ def test_links_leaving_the_docs_without_repo_url_warn(merge: Callable[..., Assem
 
 
 def test_rewriting_never_touches_the_sources(merge: Callable[..., Assembly], tmp_path: Path) -> None:
-    text = "[d](https://example.org/dame-rs/)\n"
+    text = "[d](https://example.org/datamodel-code-generator/)\n"
 
     assembly = merge({"index.md": text})
 
-    assert staged(assembly, "lev/index.md") == "[d](../dame/index.md)\n"
+    assert staged(assembly, "lev/index.md") == "[d](../datamodel/index.md)\n"
     assert (tmp_path / "lev" / "docs" / "index.md").read_text(encoding="utf-8") == text
 
 
@@ -170,10 +186,28 @@ def test_unterminated_angle_destination_is_ignored() -> None:
 
 
 def test_build_validates_rewritten_links(make_project: Callable[..., Path]) -> None:
-    make_project("lev", LEV, files={"index.md": "# lev\n\n[book](https://example.org/dame-rs/design/#opening-book)\n"})
-    make_project("dame-rs", DAME, files={"index.md": "# dame\n", "design.md": "# Design\n\n## Opening book\n"})
-    umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}, {"dame": "!include ../dame-rs"}]})
+    make_project(
+        "lev",
+        LEV,
+        files={
+            "index.md": "# lev\n\n[start](https://example.org/datamodel-code-generator/getting-started/#quick-start)\n"
+        },
+    )
+    make_project(
+        "datamodel-code-generator",
+        DATAMODEL,
+        files={"index.md": "# datamodel\n", "getting-started.md": "# Getting started\n\n## Quick start\n"},
+    )
+    umbrella = make_project(
+        "umbrella", {"nav": [{"lev": "!include ../lev"}, {"datamodel": "!include ../datamodel-code-generator"}]}
+    )
     assert main(["build", "--strict", "-f", str(umbrella)]) == 0
 
-    make_project("lev", LEV, files={"index.md": "# lev\n\n[book](https://example.org/dame-rs/design/#closing-book)\n"})
+    make_project(
+        "lev",
+        LEV,
+        files={
+            "index.md": "# lev\n\n[start](https://example.org/datamodel-code-generator/getting-started/#slow-start)\n"
+        },
+    )
     assert main(["build", "--strict", "-f", str(umbrella)]) != 0

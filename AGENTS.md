@@ -52,7 +52,7 @@ Speed matters: prefer hardlinks over copies and only rewrite files that need cha
   - `cli.py` — command line interface
 - `tests/` — pytest suite, incl. end-to-end builds with Zensical
 - `docs/` — Zensical documentation source
-- `examples/karelze/` — example umbrella site merging lev and dame-rs from GitHub, built in the docs workflow
+- `examples/demo/` — example umbrella site merging lev and datamodel-code-generator from GitHub, built in the docs workflow
 
 ## Unsupported features
 Track missing features as GitHub issues with the `backlog` label and list them in `docs/limitations.md`.

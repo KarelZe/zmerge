@@ -13,14 +13,14 @@ if TYPE_CHECKING:
 
 def test_load_site_resolves_includes(make_project: Callable[..., Path]) -> None:
     lev = make_project("lev", {"nav": [{"Home": "index.md"}, {"API": "api.md"}]})
-    dame = make_project("dame-rs", {"docs_dir": "documentation"}, docs_dir="documentation")
+    datamodel = make_project("datamodel-code-generator", {"docs_dir": "documentation"}, docs_dir="documentation")
     umbrella = make_project(
         "umbrella",
         {
             "nav": [
                 {"Home": "index.md"},
                 {"lev": "!include ../lev/zensical.toml"},
-                {"Projects": ["!include ../dame-rs", {"GitHub": "https://github.com"}]},
+                {"Projects": ["!include ../datamodel-code-generator", {"GitHub": "https://github.com"}]},
             ]
         },
     )
@@ -37,14 +37,14 @@ def test_load_site_resolves_includes(make_project: Callable[..., Path]) -> None:
     assert lev_include.project.config_file == lev
     assert lev_include.project.nav == (Link("Home", "index.md"), Link("API", "api.md"))
     assert isinstance(projects, Section)
-    dame_include, github = projects.items
-    assert isinstance(dame_include, Include)
+    datamodel_include, github = projects.items
+    assert isinstance(datamodel_include, Include)
     # Without a nav title, the child's site name is used.
-    assert dame_include.title == "dame-rs"
-    assert dame_include.project.docs_dir == dame.parent / "documentation"
-    assert dame_include.project.nav is None
+    assert datamodel_include.title == "datamodel-code-generator"
+    assert datamodel_include.project.docs_dir == datamodel.parent / "documentation"
+    assert datamodel_include.project.nav is None
     assert github == Link("GitHub", "https://github.com")
-    assert [p.prefix for p in site.projects] == ["lev", "dame-rs"]
+    assert [p.prefix for p in site.projects] == ["lev", "datamodel-code-generator"]
 
 
 def test_prefix_override(make_project: Callable[..., Path]) -> None:

@@ -1,8 +1,8 @@
-# Umbrella site merging the docs of lev and dame-rs with zmerge.
+# Umbrella site merging the docs of lev and datamodel-code-generator with zmerge.
 # Build it with: uvx --with mkdocstrings-python --with lev-rs zmerge build --strict
 [project]
-site_name = "KarelZe's projects"
-site_description = "The documentation of lev and dame, merged with zmerge."
+site_name = "zmerge example"
+site_description = "The documentation of lev and datamodel-code-generator, merged with zmerge."
 site_author = "KarelZe"
 site_url = "https://karelze.github.io/zmerge/example/"
 repo_url = "https://github.com/KarelZe/zmerge"
@@ -11,7 +11,7 @@ repo_name = "KarelZe/zmerge"
 nav = [
   { Home = "index.md" },
   { lev = "!include git+https://github.com/KarelZe/lev.git" },
-  { dame = "!include git+https://github.com/KarelZe/dame-rs.git" },
+  { datamodel = "!include git+https://github.com/koxudaxi/datamodel-code-generator.git" },
 ]
 
 [project.theme]

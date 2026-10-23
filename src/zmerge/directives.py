@@ -99,7 +99,7 @@ def inject_options(text: str, options: Mapping[str, Mapping[str, Any]], *, defau
         The Markdown source with updated directives.
 
     Examples:
-        >>> text = "::: lev\n    options:\n      members: [distance]\n\n::: dame\n"
+        >>> text = "::: lev\n    options:\n      members: [distance]\n\n::: datamodel\n"
         >>> print(inject_options(text, {"python": {"show_source": True}}, default_handler="python"), end="")
         ::: lev
             options:
@@ -107,7 +107,7 @@ def inject_options(text: str, options: Mapping[str, Mapping[str, Any]], *, defau
               members:
               - distance
         <BLANKLINE>
-        ::: dame
+        ::: datamodel
             options:
               show_source: true
     """

@@ -82,20 +82,22 @@ def test_rewrite_snippets(tmp_path: Path) -> None:
 
 def test_snippets_resolve_per_project(make_project: Callable[..., Path], tmp_path: Path) -> None:
     snippets = {"markdown_extensions": {"pymdownx": {"snippets": {"check_paths": True}}}}
-    for name in ("lev", "dame"):
+    for name in ("lev", "datamodel"):
         make_project(name, snippets, files={"index.md": '# Readme\n\n--8<-- "README.md"\n'})
         (tmp_path / name / "README.md").write_text(f"The {name} README.\n", encoding="utf-8")
-    umbrella = make_project("umbrella", {**snippets, "nav": [{"lev": "!include ../lev"}, {"dame": "!include ../dame"}]})
+    umbrella = make_project(
+        "umbrella", {**snippets, "nav": [{"lev": "!include ../lev"}, {"datamodel": "!include ../datamodel"}]}
+    )
 
     assert main(["build", "--strict", "-f", str(umbrella)]) == 0
 
     site = umbrella.parent / "site"
     assert "The lev README." in (site / "lev" / "index.html").read_text(encoding="utf-8")
-    assert "The dame README." in (site / "dame" / "index.html").read_text(encoding="utf-8")
+    assert "The datamodel README." in (site / "datamodel" / "index.html").read_text(encoding="utf-8")
 
 
 def test_mkdocstrings_options_per_project(make_project: Callable[..., Path], tmp_path: Path) -> None:
-    for name, show_source in (("lev", False), ("dame", True)):
+    for name, show_source in (("lev", False), ("datamodel", True)):
         make_project(
             name,
             {
@@ -117,15 +119,15 @@ def test_mkdocstrings_options_per_project(make_project: Callable[..., Path], tmp
         "umbrella",
         {
             "markdown_extensions": {"toc": {"permalink": True}},
-            "nav": [{"lev": "!include ../lev"}, {"dame": "!include ../dame"}],
+            "nav": [{"lev": "!include ../lev"}, {"datamodel": "!include ../datamodel"}],
         },
     )
 
     assembly = assemble(load_site(umbrella))
     assert assembly.warnings == []
-    assert "show_source: true" in (assembly.docs_dir / "dame" / "index.md").read_text(encoding="utf-8")
+    assert "show_source: true" in (assembly.docs_dir / "datamodel" / "index.md").read_text(encoding="utf-8")
     assert main(["build", "--strict", "-f", str(umbrella)]) == 0
 
     site = umbrella.parent / "site"
     assert "Source code in" not in (site / "lev" / "index.html").read_text(encoding="utf-8")
-    assert "Source code in" in (site / "dame" / "index.html").read_text(encoding="utf-8")
+    assert "Source code in" in (site / "datamodel" / "index.html").read_text(encoding="utf-8")
