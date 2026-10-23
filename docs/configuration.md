@@ -75,7 +75,7 @@ The umbrella project owns the settings of the site as a whole, like `site_name`,
 | `plugins` | Combined, e.g. `search`, `tags` or `mkdocstrings`. |
 | `mkdocstrings` handlers | `paths` of all projects are combined and rebased onto the umbrella project. Handler `options` that differ from the merged ones are written into the project's `:::` directives, so each project renders as when built on its own. |
 | `pymdownx.snippets` | `base_path` of all projects are combined. Snippets resolve against the base paths of their project. |
-| `mdx_include`, `markdown_include_variants` | `{! file !}` and `{* file *}` resolve against the project, as when it is built on its own. |
+| `mdx_include`, `markdown_include_variants` | Included files resolve against their project, as when it is built on its own. |
 | `extra_css`, `extra_javascript` | Local paths get the project prefix; duplicates are removed. |
 | `exclude_docs`, `draft_docs`, `not_in_nav` | Patterns are anchored at the project prefix. |
 
