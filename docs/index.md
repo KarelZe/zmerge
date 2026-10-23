@@ -83,5 +83,6 @@ them on every run, and editing a hardlinked file in `.zmerge/docs/` changes the 
 - [Configuration](configuration.md): includes, prefixes, git sources and merged settings.
 - [Links](links.md): linking between projects.
 - [Command line](cli.md): commands and options.
+- [Publishing](publishing.md): deploying the merged site with GitHub Pages.
 - [Migrating from mkdocs-monorepo-plugin](migrating.md).
 - [Limitations](limitations.md): what's not supported yet.

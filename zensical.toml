@@ -12,6 +12,7 @@ nav = [
   { Configuration = "configuration.md" },
   { Links = "links.md" },
   { "Command line" = "cli.md" },
+  { Publishing = "publishing.md" },
   { "Migrating from mkdocs-monorepo-plugin" = "migrating.md" },
   { Limitations = "limitations.md" },
 ]

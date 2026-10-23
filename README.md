@@ -56,6 +56,8 @@ zmerge generates `.zmerge/` and `.zmerge.toml` next to the umbrella `zensical.to
 printf '.zmerge/\n.zmerge.toml\n' >> .gitignore
 ```
 
+To publish the merged site with GitHub Pages, see [Publishing](https://karelze.github.io/zmerge/publishing/).
+
 Read the [documentation](https://karelze.github.io/zmerge/) for the configuration, links between projects and
 [limitations](https://karelze.github.io/zmerge/limitations/). [examples/karelze](examples/karelze) is a complete
 umbrella project.
