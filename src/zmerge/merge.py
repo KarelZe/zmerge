@@ -33,6 +33,8 @@ _ASSET_KEYS = ("extra_css", "extra_javascript")
 # Python Markdown extension namespaces Zensical lets you write as nested tables, see `_convert_markdown_extensions`.
 _NAMESPACES = {"pymdownx": "blocks", "zensical": "extensions"}
 SNIPPETS = "pymdownx.snippets"
+MDX_INCLUDE = "mdx_include"
+INCLUDE_VARIANTS = "markdown_include_variants"
 _MISSING = object()
 
 
@@ -167,6 +169,9 @@ def _merge_extensions(site: Site, projects: list[Project], warnings: list[str]) 
                     if rebased not in base_paths:
                         base_paths.append(rebased)
                 options.pop("base_path", None)
+            elif name == MDX_INCLUDE:
+                # Includes are resolved per project, see `zmerge.directives.rewrite_includes`.
+                options = {key: value for key, value in options.items() if key != "base_path"}
             if name not in merged:
                 merged[name] = dict(options)
                 origin[name] = config_file
@@ -331,8 +336,32 @@ def _handler_default(handler: str, key: str) -> object:
     except ImportError:
         return _MISSING
     names = {f.name for f in dataclasses.fields(PythonOptions)}
-    value = getattr(PythonOptions(), key, _MISSING) if key in names else _MISSING
+    value = _config_value(getattr(PythonOptions(), key)) if key in names else _MISSING
     return value if _is_plain(value) else _MISSING
+
+
+def _config_value(value: object) -> object:
+    """Turn a parsed handler option back into the form it takes in the configuration.
+
+    Args:
+        value: The parsed option, e.g. a dataclass or compiled filters.
+
+    Returns:
+        The option as it is written in the configuration.
+
+    Examples:
+        >>> import re
+        >>> _config_value([(re.compile("^_[^_]"), True), (re.compile("^__init__$"), False)])
+        ['!^_[^_]', '^__init__$']
+    """
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return {f.name: _config_value(getattr(value, f.name)) for f in dataclasses.fields(value)}
+    if isinstance(value, tuple) and len(value) == 2 and isinstance(value[0], re.Pattern):  # a parsed filter
+        pattern, exclude = value
+        return f"!{pattern.pattern}" if exclude else pattern.pattern
+    if isinstance(value, list | tuple):
+        return [_config_value(v) for v in value]
+    return value
 
 
 def _is_plain(value: object) -> bool:

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import tomllib
 from typing import TYPE_CHECKING
 
 from zmerge.assemble import assemble
 from zmerge.cli import main
 from zmerge.config import load_site
-from zmerge.directives import inject_options, rewrite_snippets
+from zmerge.directives import inject_options, rewrite_includes, rewrite_snippets
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -129,3 +130,46 @@ def test_mkdocstrings_options_per_project(make_project: Callable[..., Path], tmp
     site = umbrella.parent / "site"
     assert "Source code in" not in (site / "lev" / "index.html").read_text(encoding="utf-8")
     assert "Source code in" in (site / "dame" / "index.html").read_text(encoding="utf-8")
+
+
+def test_rewrite_includes(tmp_path: Path) -> None:
+    (tmp_path / "docs_src").mkdir()
+    (tmp_path / "docs_src" / "a.py").write_text("a = 1\n", encoding="utf-8")
+    a = (tmp_path / "docs_src" / "a.py").as_posix()
+    text = (
+        "{* docs_src/a.py hl[1] *}\n"
+        "{* docs_src/missing.py *}\n"
+        "Inline {!docs_src/a.py!} and {!+> docs_src/a.py [ln:1-2] | utf-8 !}.\n"
+        "\\{!docs_src/a.py!} {!https://example.org/a.py!}\n"
+    )
+
+    assert rewrite_includes(text, mdx_base=tmp_path, variants_base=tmp_path) == (
+        f"{{* {a} hl[1] *}}\n"
+        "{* docs_src/missing.py *}\n"
+        f"Inline {{!{a}!}} and {{!+> {a} [ln:1-2] | utf-8 !}}.\n"
+        "\\{!docs_src/a.py!} {!https://example.org/a.py!}\n"
+    )
+    assert rewrite_includes(text, mdx_base=None, variants_base=None) == text
+
+
+def test_includes_resolve_per_project(make_project: Callable[..., Path], tmp_path: Path) -> None:
+    extensions = {"markdown_extensions": {"mdx_include": {"base_path": "src"}, "markdown_include_variants": {}}}
+    for name in ("lev", "dame"):
+        make_project(name, extensions, files={"index.md": "{* docs_src/a.py *}\n\n{!a.md!}\n"})
+        for path in ("docs_src/a.py", "src/a.md"):
+            (tmp_path / name / path).parent.mkdir(parents=True, exist_ok=True)
+            (tmp_path / name / path).write_text(name, encoding="utf-8")
+    umbrella = make_project(
+        "umbrella", {**extensions, "nav": [{"lev": "!include ../lev"}, {"dame": "!include ../dame"}]}
+    )
+
+    assembly = assemble(load_site(umbrella))
+
+    for name in ("lev", "dame"):
+        root = (tmp_path / name).as_posix()
+        assert (assembly.docs_dir / name / "index.md").read_text(encoding="utf-8") == (
+            f"{{* {root}/docs_src/a.py *}}\n\n{{!{root}/src/a.md!}}\n"
+        )
+    config = tomllib.loads(assembly.config_file.read_text(encoding="utf-8"))
+    assert config["project"]["markdown_extensions"]["mdx_include"] == {}
+    assert assembly.warnings == []

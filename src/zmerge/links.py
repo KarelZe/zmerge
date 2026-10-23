@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Mapping
+    from collections.abc import Callable, Collection, Iterator, Mapping
 
     from zmerge.assemble import Source
     from zmerge.config import Project, Site
@@ -44,12 +44,15 @@ class _Site:
     prefix: str
 
 
-def rewrite_links(site: Site, files: Mapping[str, Source]) -> tuple[dict[str, str], list[str]]:
+def rewrite_links(
+    site: Site, files: Mapping[str, Source], *, excluded: Collection[str] = ()
+) -> tuple[dict[str, str], list[str]]:
     """Rewrite the links of all Markdown files of the merged docs.
 
     Args:
         site: The umbrella site.
         files: The merged files, keyed by their path relative to the merged docs directory.
+        excluded: Merged paths of pages to leave alone, e.g. pages excluded with ``exclude_docs``.
 
     Returns:
         The new content of the files that changed, keyed by their merged path, and warnings about links that could
@@ -60,7 +63,7 @@ def rewrite_links(site: Site, files: Mapping[str, Source]) -> tuple[dict[str, st
     rewritten: dict[str, str] = {}
     warnings: list[str] = []
     for path, source in files.items():
-        if not path.endswith(".md"):
+        if not path.endswith(".md") or path in excluded:
             continue
         text = source.path.read_text(encoding="utf-8")
         if "](" not in text and "]:" not in text:

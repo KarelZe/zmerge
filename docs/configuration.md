@@ -25,6 +25,15 @@ prefixes are nested, e.g. `lev/core`.
 A project's section uses the project's own `nav`. Without one, zmerge generates it from the folder structure like
 Zensical does: index pages first, then pages and folders in alphabetical order.
 
+### Projects with an `mkdocs.yml`
+
+Projects configured with an `mkdocs.yml` can be included like those with a `zensical.toml`, e.g.
+`!include ../typer/mkdocs.yml`. In a directory, zmerge looks for `zensical.toml`, `mkdocs.yml` and `mkdocs.yaml`, in
+this order, like Zensical. zmerge reads `mkdocs.yml` like Zensical does: it resolves `INHERIT` and `!ENV`, keeps Python
+tags like `!!python/name:pymdownx.superfences.fence_code_format` and renames `material.extensions` to
+`zensical.extensions`. Set zmerge options of an `mkdocs.yml` in its `zmerge` key. The umbrella project needs a
+`zensical.toml`.
+
 ## Prefixes
 
 Each project's URLs start with its prefix. The prefix defaults to the project id, the slug of the nav title (or of the
@@ -66,6 +75,7 @@ The umbrella project owns the settings of the site as a whole, like `site_name`,
 | `plugins` | Combined, e.g. `search`, `tags` or `mkdocstrings`. |
 | `mkdocstrings` handlers | `paths` of all projects are combined and rebased onto the umbrella project. Handler `options` that differ from the merged ones are written into the project's `:::` directives, so each project renders as when built on its own. |
 | `pymdownx.snippets` | `base_path` of all projects are combined. Snippets resolve against the base paths of their project. |
+| `mdx_include`, `markdown_include_variants` | `{! file !}` and `{* file *}` resolve against the project, as when it is built on its own. |
 | `extra_css`, `extra_javascript` | Local paths get the project prefix; duplicates are removed. |
 | `exclude_docs`, `draft_docs`, `not_in_nav` | Patterns are anchored at the project prefix. |
 

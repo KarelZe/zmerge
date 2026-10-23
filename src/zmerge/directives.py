@@ -6,6 +6,9 @@
 - **Snippets.** ``pymdownx.snippets`` resolves files relative to its base paths. Snippets of a project are resolved
   against the project's base paths and replaced by absolute paths, so a ``README.md`` snippet includes the README of
   the right project.
+- **Includes.** ``mdx_include`` (``{! file !}``) resolves files relative to its ``base_path`` and
+  ``markdown_include_variants`` (``{* file *}``) relative to the working directory. Like snippets, includes of a
+  project are resolved against the project and replaced by absolute paths.
 """
 
 from __future__ import annotations
@@ -16,10 +19,10 @@ from typing import TYPE_CHECKING, Any
 import yaml
 
 from zmerge.links import outside_fences
-from zmerge.merge import SNIPPETS, normalize_extensions, snippet_base_paths
+from zmerge.merge import INCLUDE_VARIANTS, MDX_INCLUDE, SNIPPETS, normalize_extensions, snippet_base_paths
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Collection, Mapping
     from pathlib import Path
 
     from zmerge.assemble import Source
@@ -42,10 +45,18 @@ _SNIPPET = re.compile(
 _SNIPPET_FILE = re.compile(
     r"(?i)(.*?)((?:(?::-?[0-9]*){1,2}(?:(?:,(?=[-0-9:])-?[0-9]*)(?::-?[0-9]*)?)*)|(?::[a-z][-_0-9a-z]*))?$"
 )
+# The default syntax of `mdx_include.IncludePreprocessor` and the line pattern of `markdown_include_variants`.
+_MDX_INCLUDE = re.compile(r"(?<!\\)\{![+-]?>?\s*(?P<path>[^]|[]+?)(?=\s*(?:\[ln:[\d.,-]+\])?\s*(?:\|\s*.+?\s*)?!\})")
+_INCLUDE_VARIANT = re.compile(r"^\{\*\s*(?P<path>\S+)\s*.*\*\}$", re.MULTILINE)
 
 
 def rewrite_directives(
-    site: Site, files: Mapping[str, Source], rewritten: dict[str, str], merged: MergedConfig
+    site: Site,
+    files: Mapping[str, Source],
+    rewritten: dict[str, str],
+    merged: MergedConfig,
+    *,
+    excluded: Collection[str] = (),
 ) -> None:
     """Rewrite the mkdocstrings directives and snippets of all project pages in place.
 
@@ -54,16 +65,19 @@ def rewrite_directives(
         files: The merged files.
         rewritten: New content of changed files, keyed by merged path. Updated in place.
         merged: The merged configuration.
+        excluded: Merged paths of pages to leave alone, e.g. pages excluded with ``exclude_docs``.
     """
     projects = {p.prefix: p for p in site.projects}
     snippet_paths = {prefix: _snippet_paths(project) for prefix, project in projects.items()}
+    include_paths = {prefix: _include_paths(project) for prefix, project in projects.items()}
     for path, source in files.items():
         project = projects.get(source.owner)
-        if project is None or not path.endswith(".md"):
+        if project is None or not path.endswith(".md") or path in excluded:
             continue
         options = merged.directive_options.get(project.prefix)
         base_paths = snippet_paths[project.prefix]
-        if not options and base_paths is None:
+        mdx_base, variants_base = include_paths[project.prefix]
+        if not options and base_paths is None and mdx_base is None and variants_base is None:
             continue
         text = rewritten.get(path)
         if text is None:
@@ -71,6 +85,7 @@ def rewrite_directives(
         new_text = text
         if base_paths is not None and "8<-" in new_text:
             new_text = rewrite_snippets(new_text, base_paths)
+        new_text = rewrite_includes(new_text, mdx_base=mdx_base, variants_base=variants_base)
         if options and ":::" in new_text:
             new_text = inject_options(new_text, options, default_handler=merged.default_handler)
         if new_text != text:
@@ -83,6 +98,51 @@ def _snippet_paths(project: Project) -> list[Path] | None:
         return None
     options = normalize_extensions(extensions, config_file=project.config_file).get(SNIPPETS)
     return None if options is None else snippet_base_paths(options, root=project.root)
+
+
+def _include_paths(project: Project) -> tuple[Path | None, Path | None]:
+    """Return the base paths of ``mdx_include`` and ``markdown_include_variants``, if the project uses them."""
+    extensions = project.config.get("markdown_extensions")
+    if extensions is None:
+        return None, None
+    normalized = normalize_extensions(extensions, config_file=project.config_file)
+    mdx = normalized.get(MDX_INCLUDE)
+    mdx_base = None if mdx is None else (project.root / str(mdx.get("base_path", "."))).resolve()
+    # `markdown_include_variants` resolves paths relative to the working directory, i.e. the project root.
+    return mdx_base, project.root if INCLUDE_VARIANTS in normalized else None
+
+
+def rewrite_includes(text: str, *, mdx_base: Path | None, variants_base: Path | None) -> str:
+    r"""Replace the paths of ``{! file !}`` and ``{* file *}`` includes that exist below the base paths.
+
+    Args:
+        text: Markdown source.
+        mdx_base: Base path of ``mdx_include``, or ``None`` if the project doesn't use it.
+        variants_base: Base path of ``markdown_include_variants``, or ``None`` if the project doesn't use it.
+
+    Returns:
+        The Markdown source with absolute include paths.
+
+    Examples:
+        >>> from pathlib import Path
+        >>> rewrite_includes("{* missing.py hl[1] *}\n", mdx_base=None, variants_base=Path("/nowhere"))
+        '{* missing.py hl[1] *}\n'
+    """
+    if variants_base is not None and "{*" in text:
+        text = _INCLUDE_VARIANT.sub(lambda m: _replace_path(m, variants_base), text)
+    if mdx_base is not None and "{!" in text:
+        text = _MDX_INCLUDE.sub(lambda m: _replace_path(m, mdx_base), text)
+    return text
+
+
+def _replace_path(match: re.Match[str], base: Path) -> str:
+    path = match.group("path")
+    candidate = (base / path).resolve()
+    if "://" in path or not candidate.is_file():
+        return match.group(0)
+    start, end = match.span("path")
+    offset = match.start()
+    return match.group(0)[: start - offset] + candidate.as_posix() + match.group(0)[end - offset :]
 
 
 def inject_options(text: str, options: Mapping[str, Mapping[str, Any]], *, default_handler: str) -> str:

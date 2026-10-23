@@ -147,6 +147,34 @@ def test_mkdocstrings_options_per_project(two_projects: Callable[..., Site]) -> 
     assert "cannot determine the default of mkdocstrings option `handlers.python.options.x`" in warning
 
 
+def test_mkdocstrings_structured_defaults(two_projects: Callable[..., Site]) -> None:
+    options = {"filters": ["!^_"], "summary": True}
+    site = two_projects(
+        {},
+        {"plugins": {"mkdocstrings": {"handlers": {"python": {"options": options}}}}},
+        {"plugins": {"mkdocstrings": {}}},
+    )
+
+    merged = merge_config(site)
+
+    # dame gets mkdocstrings-python's defaults back in the form they take in the configuration.
+    assert merged.directive_options == {
+        "dame": {
+            "python": {
+                "filters": ["!^_[^_]"],
+                "summary": {
+                    "attributes": False,
+                    "functions": False,
+                    "classes": False,
+                    "modules": False,
+                    "type_aliases": False,
+                },
+            }
+        }
+    }
+    assert merged.warnings == []
+
+
 def test_mkdocstrings_unknown_handler_defaults(two_projects: Callable[..., Site]) -> None:
     site = two_projects(
         {},

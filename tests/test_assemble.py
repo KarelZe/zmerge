@@ -204,6 +204,24 @@ def test_assemble_is_incremental(make_project: Callable[..., Path]) -> None:
     assert (docs / "lev" / "link.md").read_text(encoding="utf-8") == "[d](../dame/index.md)\n"
 
 
+def test_excluded_pages_are_not_rewritten(make_project: Callable[..., Path]) -> None:
+    dead = "[gone](https://example.org/dame/gone/)\n"
+    files = {"index.md": dead, "notes.md": dead, "old/a.md": dead}
+    make_project("dame", {"site_url": "https://example.org/dame/", "exclude_docs": "notes.md\n"}, files=files)
+    umbrella = make_project(
+        "umbrella",
+        {"site_url": "https://example.org/", "exclude_docs": "/dame/old/\n", "nav": [{"dame": "!include ../dame"}]},
+    )
+
+    assembly = assemble(load_site(umbrella))
+
+    # Only the page Zensical builds is checked.
+    (warning,) = assembly.warnings
+    assert warning.startswith("dame/index.md:")
+    for page in ("notes.md", "old/a.md"):
+        assert (assembly.docs_dir / "dame" / page).read_text(encoding="utf-8") == dead
+
+
 def test_assemble_replaces_files_and_directories(make_project: Callable[..., Path]) -> None:
     lev = make_project("lev", files={"index.md": "# lev\n", "a.md": "# A\n", "b/index.md": "# B\n"})
     umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}]})

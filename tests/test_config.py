@@ -74,7 +74,7 @@ def test_nested_includes_are_prefixed(make_project: Callable[..., Path]) -> None
     [
         ([{"Home": "index.md"}], None, "contains no `!include`"),
         ([{"a": "!include ../missing/zensical.toml"}], None, "configuration file not found"),
-        ([{"a": "!include ../lev/mkdocs.yml"}], None, "must point to a `zensical.toml`"),
+        ([{"a": "!include ../lev/conf.json"}], None, "must point to a `zensical.toml` or `mkdocs.yml`"),
         ([{"a": "!include"}], None, "needs a path"),
         ([{"lev": "!include ../lev"}, {"Lev": "!include ../lev"}], None, "duplicate project id"),
         ([{"lev": "!include ../lev"}], {"projects": {"lev": {"prefx": "x"}}}, "unknown option"),
