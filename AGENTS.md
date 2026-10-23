@@ -43,6 +43,7 @@ Speed matters: prefer hardlinks over copies and only rewrite files that need cha
 ## Project Structure
 - `src/zmerge/` — Python package
   - `config.py` — load the umbrella config and resolve `!include`s
+  - `mkdocs.py` — load `mkdocs.yml` projects like Zensical
   - `sources.py` — fetch projects from git repositories
   - `assemble.py` — collect files, build the nav and sync `.zmerge/` incrementally
   - `merge.py` — merge markdown extensions, plugins, assets and patterns

@@ -15,7 +15,8 @@ links, a single navigation and one global search. It fills the gap left by the
   relative links.
 - **Per-project settings.** zmerge merges the markdown extensions, plugins, mkdocstrings options and snippets of every
   project.
-- **Local or git.** Include projects from local paths or git repositories.
+- **Local or git, TOML or YAML.** Include projects from local paths or git repositories, configured with a
+  `zensical.toml` or an `mkdocs.yml`.
 - **Fast.** Hardlinks instead of copies, incremental re-assembly in milliseconds and live previews with `zmerge serve`.
 
 ## Installation
