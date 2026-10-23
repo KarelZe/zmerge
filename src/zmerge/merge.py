@@ -33,6 +33,8 @@ _ASSET_KEYS = ("extra_css", "extra_javascript")
 # Python Markdown extension namespaces Zensical lets you write as nested tables, see `_convert_markdown_extensions`.
 _NAMESPACES = {"pymdownx": "blocks", "zensical": "extensions"}
 SNIPPETS = "pymdownx.snippets"
+MDX_INCLUDE = "mdx_include"
+INCLUDE_VARIANTS = "markdown_include_variants"
 _MISSING = object()
 
 
@@ -167,6 +169,9 @@ def _merge_extensions(site: Site, projects: list[Project], warnings: list[str]) 
                     if rebased not in base_paths:
                         base_paths.append(rebased)
                 options.pop("base_path", None)
+            elif name == MDX_INCLUDE:
+                # Includes are resolved per project, see `zmerge.directives.rewrite_includes`.
+                options = {key: value for key, value in options.items() if key != "base_path"}
             if name not in merged:
                 merged[name] = dict(options)
                 origin[name] = config_file
