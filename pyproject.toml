@@ -26,7 +26,12 @@ classifiers = [
   "Topic :: Software Development :: Documentation",
 ]
 
-dependencies = ["pathspec>=0.12", "pyyaml>=6.0", "tomli-w>=1.2", "zensical>=0.0.39"]
+dependencies = [
+  "pathspec>=0.12",
+  "pyyaml>=6.0",
+  "tomli-w>=1.2",
+  "zensical>=0.0.39",
+]
 
 [project.scripts]
 zmerge = "zmerge.cli:main"
