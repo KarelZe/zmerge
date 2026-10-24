@@ -807,6 +807,7 @@ name = "zmerge"
 version = "0.1.2"
 source = { editable = "." }
 dependencies = [
+    { name = "pathspec" },
     { name = "pyyaml" },
     { name = "tomli-w" },
     { name = "zensical" },
@@ -833,6 +834,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
+    { name = "pathspec", specifier = ">=0.12" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "tomli-w", specifier = ">=1.2" },
     { name = "zensical", specifier = ">=0.0.39" },
