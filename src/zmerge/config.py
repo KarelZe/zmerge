@@ -1,7 +1,8 @@
 """Load the umbrella configuration and the configurations of all included projects.
 
 The umbrella site is a regular ``zensical.toml``. Child projects are pulled into its navigation with an
-``!include`` entry, mirroring the syntax of the mkdocs-monorepo-plugin:
+``!include`` entry, mirroring the syntax of the mkdocs-monorepo-plugin. Projects are configured with a
+``zensical.toml`` or an ``mkdocs.yml``:
 
 ```toml
 [project]
@@ -26,6 +27,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from zmerge.errors import ZmergeError
+from zmerge.mkdocs import load_mkdocs_config
 from zmerge.sources import GIT_PREFIX, REPOS_DIR, GitSource, fetch
 
 if TYPE_CHECKING:
@@ -33,7 +35,9 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 INCLUDE = "!include"
-CONFIG_FILE_NAME = "zensical.toml"
+# Looked up in this order in included directories, like Zensical does.
+CONFIG_FILE_NAMES = ("zensical.toml", "mkdocs.yml", "mkdocs.yaml")
+_YAML_SUFFIXES = frozenset({".yml", ".yaml"})
 STAGING_DIR = ".zmerge"
 
 _PROJECT_OPTIONS = frozenset({"prefix"})
@@ -91,7 +95,7 @@ class Project:
     Attributes:
         id: Identifier of the project, used as key in ``[zmerge.projects]``.
         prefix: Path of the project's docs within the merged docs directory, e.g. ``lev`` or ``lev/core``.
-        config_file: Path to the project's ``zensical.toml``.
+        config_file: Path to the project's ``zensical.toml`` or ``mkdocs.yml``.
         config: The ``[project]`` table of the project's configuration.
         docs_dir: Absolute path to the project's docs directory.
         nav: Navigation of the project, or ``None`` if it has none.
@@ -190,6 +194,12 @@ def _iter_projects(nav: tuple[NavItem, ...] | None) -> Iterator[Project]:
 
 
 def _read_config(config_file: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    if config_file.suffix in _YAML_SUFFIXES:
+        config = load_mkdocs_config(config_file)
+        zmerge = config.pop("zmerge", {})
+        if "site_name" not in config:
+            raise ZmergeError(f"{config_file}: `site_name` is required")
+        return config, zmerge
     try:
         with config_file.open("rb") as f:
             data = tomllib.load(f)
@@ -322,9 +332,10 @@ class _Loader:
         else:
             include_file = (config_file.parent / path).resolve()
         if include_file.is_dir():
-            include_file /= CONFIG_FILE_NAME
-        if include_file.suffix != ".toml":
-            raise ZmergeError(f"{config_file}: `{INCLUDE} {path}` must point to a `zensical.toml`")
+            candidates = [include_file / name for name in CONFIG_FILE_NAMES]
+            include_file = next((c for c in candidates if c.is_file()), candidates[0])
+        if include_file.suffix != ".toml" and include_file.suffix not in _YAML_SUFFIXES:
+            raise ZmergeError(f"{config_file}: `{INCLUDE} {path}` must point to a `zensical.toml` or `mkdocs.yml`")
         if include_file in self._ancestors:
             chain = " -> ".join(str(p) for p in [*self._ancestors, include_file])
             raise ZmergeError(f"circular `{INCLUDE}`: {chain}")

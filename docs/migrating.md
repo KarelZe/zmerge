@@ -2,9 +2,9 @@
 
 zmerge keeps the `!include` syntax of the [mkdocs-monorepo-plugin](https://github.com/backstage/mkdocs-monorepo-plugin):
 
-1. Migrate the umbrella project and every project from `mkdocs.yml` to `zensical.toml`, e.g. with Zensical's
-   [migration guide](https://zensical.org/docs/setup/basics/).
-2. Point the `!include` entries to the projects' `zensical.toml` or their directories.
+1. Migrate the umbrella project from `mkdocs.yml` to `zensical.toml`, e.g. with Zensical's
+   [migration guide](https://zensical.org/docs/setup/basics/). Projects can keep their `mkdocs.yml`.
+2. Point the `!include` entries to the projects' `zensical.toml`, `mkdocs.yml` or their directories.
 3. Remove `monorepo` from the plugins.
 4. Build with `zmerge build` instead of `mkdocs build`.
 

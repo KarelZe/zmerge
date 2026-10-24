@@ -25,6 +25,15 @@ prefixes are nested, e.g. `lev/core`.
 A project's section uses the project's own `nav`. Without one, zmerge generates it from the folder structure like
 Zensical does: index pages first, then pages and folders in alphabetical order.
 
+### Projects with an `mkdocs.yml`
+
+Projects configured with an `mkdocs.yml` can be included like those with a `zensical.toml`, e.g.
+`!include ../typer/mkdocs.yml`. In a directory, zmerge looks for `zensical.toml`, `mkdocs.yml` and `mkdocs.yaml`, in
+this order, like Zensical. zmerge reads `mkdocs.yml` like Zensical does: it resolves `INHERIT` and `!ENV`, keeps Python
+tags like `!!python/name:pymdownx.superfences.fence_code_format` and renames `material.extensions` to
+`zensical.extensions`. Set zmerge options of an `mkdocs.yml` in its `zmerge` key. The umbrella project needs a
+`zensical.toml`.
+
 ## Prefixes
 
 Each project's URLs start with its prefix. The prefix defaults to the project id, the slug of the nav title (or of the
