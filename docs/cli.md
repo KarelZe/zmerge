@@ -1,5 +1,7 @@
 # Command line
 
+`zm` is a short alias of `zmerge`, e.g. `zm serve`.
+
 All commands accept these options:
 
 | Option | Description |

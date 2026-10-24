@@ -25,6 +25,8 @@ links, a single navigation and one global search. It fills the gap left by the
 uv tool install zmerge --with mkdocstrings-python  # mkdocstrings-python only if you render API docs
 ```
 
+`zm` is a short alias of `zmerge`, e.g. `zm serve`.
+
 ## Quick start
 
 Include projects in the `nav` of an umbrella project's `zensical.toml`, as with the mkdocs-monorepo-plugin:

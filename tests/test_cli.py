@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from importlib.metadata import entry_points
 from typing import TYPE_CHECKING
 from unittest import mock
 
@@ -26,6 +27,12 @@ def test_version(capsys: pytest.CaptureFixture[str]) -> None:
 def test_module_entry_point() -> None:
     result = subprocess.run([sys.executable, "-m", "zmerge", "--version"], capture_output=True, text=True, check=True)
     assert result.stdout.strip() == f"zmerge {__version__}"
+
+
+@pytest.mark.parametrize("name", ["zmerge", "zm"])
+def test_console_scripts(name: str) -> None:
+    (script,) = entry_points(group="console_scripts", name=name)
+    assert script.value == "zmerge.cli:main"
 
 
 def test_no_arguments_prints_help_and_lists_commands(capsys: pytest.CaptureFixture[str]) -> None:
