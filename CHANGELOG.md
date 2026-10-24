@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/KarelZe/zmerge/compare/0.2.0...0.3.0) (2026-10-24)
+
+
+### Features
+
+* add zm as a short alias of zmerge ✨ ([#38](https://github.com/KarelZe/zmerge/issues/38)) ([ba5bfee](https://github.com/KarelZe/zmerge/commit/ba5bfee0054b8e99d9c36ec87cc4a4bc0895edd1))
+* pass unknown options through to Zensical ✨ ([#39](https://github.com/KarelZe/zmerge/issues/39)) ([f5f99dc](https://github.com/KarelZe/zmerge/commit/f5f99dcbf4d98e9e25ab1275e31767277459ed85))
+
 ## [0.2.0](https://github.com/KarelZe/zmerge/compare/0.1.2...0.2.0) (2026-10-24)
 
 
