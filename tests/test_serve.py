@@ -101,9 +101,9 @@ def test_cli_serve_passes_options(site_files: tuple[Path, Path]) -> None:
     umbrella, _ = site_files
 
     with mock.patch("zmerge.cli.serve", return_value=0) as serve_mock:
-        assert main(["serve", "-f", str(umbrella), "-a", "localhost:9000", "-o"]) == 0
+        assert main(["serve", "-a", "localhost:9000", "-f", str(umbrella), "--open", "--strict"]) == 0
 
-    serve_mock.assert_called_once_with(umbrella, ["--dev-addr", "localhost:9000", "--open"], update=True)
+    serve_mock.assert_called_once_with(umbrella, ["-a", "localhost:9000", "--open", "--strict"], update=True)
 
 
 def test_cli_serve_reports_errors(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
