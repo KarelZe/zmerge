@@ -18,6 +18,8 @@ uv tool install zmerge
 
 To render API docs with [mkdocstrings](https://mkdocstrings.github.io/), add `--with mkdocstrings-python`.
 
+`zm` is a short alias of `zmerge`, e.g. `zm serve`.
+
 ## Quick start
 
 Create an umbrella project with a regular `zensical.toml` and include other projects in its `nav`:
