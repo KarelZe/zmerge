@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.0](https://github.com/KarelZe/zmerge/compare/0.1.2...0.2.0) (2026-10-24)
+
+
+### Features
+
+* include projects configured with mkdocs.yml ✨ ([#33](https://github.com/KarelZe/zmerge/issues/33)) ([3a078e7](https://github.com/KarelZe/zmerge/commit/3a078e7aae5f1599885eca7e25cafe45c327ea09))
+* resolve mdx_include and include-variants paths per project ✨ ([#34](https://github.com/KarelZe/zmerge/issues/34)) ([949192c](https://github.com/KarelZe/zmerge/commit/949192c1321a5628e3c14de9b6f887540075a2d4))
+
+
+### Bug Fixes
+
+* restore structured mkdocstrings defaults per project 🐛 ([#32](https://github.com/KarelZe/zmerge/issues/32)) ([94ad1e8](https://github.com/KarelZe/zmerge/commit/94ad1e896ae53879d7cd5f0c91db9d2e0de91cb7))
+* skip pages excluded with exclude_docs when rewriting 🐛 ([#35](https://github.com/KarelZe/zmerge/issues/35)) ([e01f7bb](https://github.com/KarelZe/zmerge/commit/e01f7bb4c16b9e7713219c2edf3c3f3bc0e6e87b))
+
+
+### Documentation
+
+* build the docs with zmerge, merging lev and Typer 📝 ([#29](https://github.com/KarelZe/zmerge/issues/29)) ([200830f](https://github.com/KarelZe/zmerge/commit/200830f5cc2968136fe3c55650e063c4501d38e1))
+
 ## [0.1.2](https://github.com/KarelZe/zmerge/compare/0.1.1...0.1.2) (2026-10-22)
 
 
