@@ -35,6 +35,7 @@ dependencies = [
 
 [project.scripts]
 zmerge = "zmerge.cli:main"
+zm = "zmerge.cli:main"
 
 [project.urls]
 "Homepage" = "https://github.com/KarelZe/zmerge"
