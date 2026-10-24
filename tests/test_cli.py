@@ -5,6 +5,7 @@ import subprocess
 import sys
 from importlib.metadata import entry_points
 from typing import TYPE_CHECKING
+from unittest import mock
 
 import pytest
 
@@ -50,6 +51,36 @@ def test_assemble_prints_generated_config(
 
     assert main(["assemble", "-f", str(umbrella)]) == 0
     assert capsys.readouterr().out.strip() == str(umbrella.parent / ".zmerge.toml")
+
+
+def test_assemble_rejects_zensical_options(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        main(["assemble", "--clean"])
+    assert excinfo.value.code == 2
+    assert "unrecognized arguments: --clean" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("argv", "expected"),
+    [
+        (["-c", "--future=1", "-x", "y"], ["-c", "--future=1", "-x", "y"]),
+        (["-sc"], ["--strict", "-c"]),
+        (["--", "-c"], ["-c"]),
+    ],
+)
+def test_build_passes_options_to_zensical(
+    make_project: Callable[..., Path], argv: list[str], expected: list[str]
+) -> None:
+    make_project("lev")
+    umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}]})
+
+    with mock.patch("zmerge.cli.subprocess.run") as run:
+        run.return_value.returncode = 0
+        assert main(["build", "-f", str(umbrella), *argv]) == 0
+
+    command = run.call_args.args[0]
+    assert command[3:6] == ["build", "--config-file", str(umbrella.parent / ".zmerge.toml")]
+    assert command[6:] == expected
 
 
 def test_invalid_config_reports_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
