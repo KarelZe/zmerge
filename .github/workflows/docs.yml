@@ -30,15 +30,9 @@ jobs:
       - name: Install docs dependencies
         run: uv sync --frozen --no-default-groups --group docs --group test
 
+      # The docs are built with zmerge and merge lev and Typer straight from GitHub, as an end-to-end test.
       - name: Build docs
-        run: uv run --frozen --no-sync zensical build --strict
-
-      # End-to-end test: merge lev and dame-rs straight from GitHub, published next to the docs.
-      - name: Build example
-        run: uv run --frozen --no-sync --with lev-rs zmerge build --strict -f examples/karelze/zensical.toml
-
-      - name: Add example to the site
-        run: cp -r examples/karelze/site site/example
+        run: uv run --frozen --no-sync zmerge build --strict
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         if: github.event_name != 'pull_request'

@@ -14,7 +14,14 @@ nav = [
   { "Command line" = "cli.md" },
   { "Migrating from mkdocs-monorepo-plugin" = "migrating.md" },
   { Limitations = "limitations.md" },
+  # These docs are built with zmerge: the example merges lev and Typer straight from GitHub.
+  { Example = [
+    { lev = "!include git+https://github.com/KarelZe/lev.git" },
+    { Typer = "!include git+https://github.com/fastapi/typer.git" },
+  ] },
 ]
+# Typer's release notes link to pages that no longer exist.
+exclude_docs = "/example/typer/release-notes.md"
 
 [project.theme]
 variant = "modern"
@@ -62,3 +69,9 @@ anchor_linenums = true
 [project.markdown_extensions.pymdownx.superfences]
 
 [project.markdown_extensions.pymdownx.inlinehilite]
+
+[zmerge.projects.lev]
+prefix = "example/lev"
+
+[zmerge.projects.typer]
+prefix = "example/typer"

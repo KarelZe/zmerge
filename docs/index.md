@@ -29,7 +29,7 @@ site_url = "https://example.github.io/"
 nav = [
   { Home = "index.md" },
   { lev = "!include ../lev/zensical.toml" },
-  { dame = "!include git+https://github.com/KarelZe/dame-rs.git" },
+  { Typer = "!include git+https://github.com/fastapi/typer.git" },
 ]
 
 [project.markdown_extensions.admonition]
@@ -52,9 +52,10 @@ printf '.zmerge/\n.zmerge.toml\n' >> .gitignore
 
 !!! example
 
-    [examples/karelze](https://github.com/KarelZe/zmerge/tree/main/examples/karelze) merges the docs of
-    [lev](https://github.com/KarelZe/lev) and [dame-rs](https://github.com/KarelZe/dame-rs) from GitHub. See the
-    [result](https://karelze.github.io/zmerge/example/).
+    These docs are built with zmerge. The [example](example/lev/index.md) merges the docs of
+    [lev](https://github.com/KarelZe/lev) and [Typer](https://github.com/fastapi/typer) straight from GitHub, with
+    their API docs and code examples. See the
+    [`zensical.toml`](https://github.com/KarelZe/zmerge/blob/main/zensical.toml).
 
 ## How it works
 

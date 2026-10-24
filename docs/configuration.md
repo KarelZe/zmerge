@@ -12,10 +12,10 @@ site_name = "My projects"
 nav = [
   { Home = "index.md" },
   { lev = "!include ../lev/zensical.toml" },
-  { Engines = [
-    { dame = "!include ../dame-rs" },  # a directory containing a zensical.toml works, too
+  { Tools = [
+    { Typer = "!include ../typer" },  # a directory containing a zensical.toml or mkdocs.yml works, too
   ] },
-  "!include ../tclf",  # without a title, the project's `site_name` is used
+  "!include ../oterm",  # without a title, the project's `site_name` is used
 ]
 ```
 
@@ -41,8 +41,8 @@ Each project's URLs start with its prefix. The prefix defaults to the project id
 file that contains the include:
 
 ```toml
-[zmerge.projects.dame]
-prefix = "engines/dame"
+[zmerge.projects.typer]
+prefix = "tools/typer"
 ```
 
 A prefix may have several segments of letters, digits, `.`, `_` and `-`. A segment must not start with `.` or be
@@ -55,7 +55,7 @@ Include a project from its git repository with pip's syntax:
 ```toml
 nav = [
   { lev = "!include git+https://github.com/KarelZe/lev.git" },
-  { dame = "!include git+https://github.com/KarelZe/dame-rs.git@main" },
+  { Typer = "!include git+https://github.com/fastapi/typer.git@master" },
   { docs = "!include git+https://github.com/me/mono.git@v1.0#subdirectory=packages/docs" },
 ]
 ```

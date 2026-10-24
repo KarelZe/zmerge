@@ -3,9 +3,10 @@
 Two kinds of links are rewritten:
 
 - **Links between projects.** Projects link to each other with absolute URLs of their published sites, e.g.
-  ``https://example.org/dame/design/#opening-book``. These links work when every project is built on its own. In
-  the merged site, they become relative links to the merged page, e.g. ``../dame/design.md#opening-book``, so Zensical
-  validates them and they stay within the merged site.
+  ``https://example.org/typer/tutorial/first-steps/#the-simplest-example``. These links work when every project is
+  built on its own. In the merged site, they become relative links to the merged page, e.g.
+  ``../typer/tutorial/first-steps.md#the-simplest-example``, so Zensical validates them and they stay within the merged
+  site.
 - **Links leaving a project's docs.** Relative links like ``../LICENSE`` point outside the project's ``docs_dir``. In
   the merged site, they would resolve to unrelated files, so they become links to the file in the project's
   repository, derived from ``repo_url`` and ``edit_uri``.

@@ -43,7 +43,15 @@ zmerge = "zmerge.cli:main"
 
 [dependency-groups]
 test = ["mkdocstrings-python", "pytest", "pytest-cov"]
-docs = ["zensical"]
+# Building the docs merges lev and Typer, whose API docs and code includes need these.
+docs = [
+  "griffe-typingdoc",
+  "lev-rs",
+  "markdown-include-variants",
+  "mdx-include",
+  "mkdocstrings-python",
+  "zensical",
+]
 dev = [
   { include-group = "test" },
   { include-group = "docs" },

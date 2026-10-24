@@ -8,19 +8,19 @@ links that would break in the merged site, so a project's docs build both on the
 Link to another project with the absolute URL of its published site:
 
 ```md
-The engine uses an [opening book](https://karelze.github.io/dame-rs/design/#opening-book).
+Start with the [simplest example](https://typer.tiangolo.com/tutorial/first-steps/#the-simplest-example).
 ```
 
 The link works when the project is built on its own. When merging, zmerge turns every link into the `site_url` of the
 umbrella project or an included project into a relative link to the merged page:
 
 ```md
-The engine uses an [opening book](../dame/design.md#opening-book).
+Start with the [simplest example](../typer/tutorial/first-steps.md#the-simplest-example).
 ```
 
-Zensical then validates the link, anchors included. zmerge understands directory URLs (`design/`), `.html` URLs
-(`design.html`), index pages and assets. It leaves a link into a project's site that matches no merged page unchanged
-and warns.
+Zensical then validates the link, anchors included. zmerge understands directory URLs (`first-steps/`), `.html`
+URLs (`first-steps.html`), index pages and assets. It leaves a link into a project's site that matches no merged
+page unchanged and warns.
 
 !!! tip
 

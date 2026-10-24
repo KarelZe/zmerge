@@ -13,6 +13,8 @@ zmerge will be retired ([#18](https://github.com/KarelZe/zmerge/issues/18)). The
 - **Wildcard includes** like `*include ./projects/*/zensical.toml` ([#12](https://github.com/KarelZe/zmerge/issues/12)).
 - **Conflicting JavaScript**, e.g. one project using MathJax and another KaTeX, is loaded on every page
   ([#13](https://github.com/KarelZe/zmerge/issues/13)).
+- **Markdown extensions apply to every page**, also to pages of projects that don't use them. Includes or macros of
+  one project can change text in another ([#36](https://github.com/KarelZe/zmerge/issues/36)).
 - **Links in raw HTML and in snippets** aren't rewritten ([#14](https://github.com/KarelZe/zmerge/issues/14)).
 - **Versioned docs** with mike ([#15](https://github.com/KarelZe/zmerge/issues/15)).
 - **`zmerge serve`** doesn't watch mkdocstrings sources and snippet files outside the docs
