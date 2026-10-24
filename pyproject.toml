@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "zmerge"
-version = "0.2.0"
+version = "0.3.0"
 authors = [{ name = "Markus Bilz", email = "github@markusbilz.com" }]
 description = "Merge the documentation of multiple Zensical projects into one site with working links and a global search ☂️."
 readme = "README.md"
