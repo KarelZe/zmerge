@@ -69,6 +69,22 @@ def test_build_merged_site(make_project: Callable[..., Path]) -> None:
     assert {"lev", "dame"} <= locations
 
 
+def test_build_restores_structured_mkdocstrings_defaults(make_project: Callable[..., Path]) -> None:
+    pytest.importorskip("mkdocstrings_handlers.python")
+    for name, options in (("lev", {"filters": [], "summary": True}), ("dame", {})):
+        plugins = {"mkdocstrings": {"handlers": {"python": {"options": options}}}}
+        config = make_project(name, {"plugins": plugins}, files={"index.md": f"# {name}\n\n::: {name}_api\n"})
+        (config.parent / f"{name}_api.py").write_text(f'def _{name}_private():\n    """Private."""\n', encoding="utf-8")
+    umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}, {"dame": "!include ../dame"}]})
+
+    assert main(["build", "--strict", "-f", str(umbrella)]) == 0
+
+    site = umbrella.parent / "site"
+    assert "_lev_private" in (site / "lev" / "index.html").read_text(encoding="utf-8")
+    # dame doesn't set `filters`, so it keeps mkdocstrings-python's default, which hides private members.
+    assert "_dame_private" not in (site / "dame" / "index.html").read_text(encoding="utf-8")
+
+
 def test_build_strict_fails_on_broken_links(make_project: Callable[..., Path]) -> None:
     make_project("lev", files={"index.md": "# lev\n\n[missing](missing.md)\n"})
     umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}]})

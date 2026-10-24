@@ -331,8 +331,32 @@ def _handler_default(handler: str, key: str) -> object:
     except ImportError:
         return _MISSING
     names = {f.name for f in dataclasses.fields(PythonOptions)}
-    value = getattr(PythonOptions(), key, _MISSING) if key in names else _MISSING
+    value = _config_value(getattr(PythonOptions(), key)) if key in names else _MISSING
     return value if _is_plain(value) else _MISSING
+
+
+def _config_value(value: object) -> object:
+    """Turn a parsed handler option back into the form it takes in the configuration.
+
+    Args:
+        value: The parsed option, e.g. a dataclass or compiled filters.
+
+    Returns:
+        The option as it is written in the configuration.
+
+    Examples:
+        >>> import re
+        >>> _config_value([(re.compile("^_[^_]"), True), (re.compile("^__init__$"), False)])
+        ['!^_[^_]', '^__init__$']
+    """
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return {f.name: _config_value(getattr(value, f.name)) for f in dataclasses.fields(value)}
+    if isinstance(value, tuple) and len(value) == 2 and isinstance(value[0], re.Pattern):  # a parsed filter
+        pattern, exclude = value
+        return f"!{pattern.pattern}" if exclude else pattern.pattern
+    if isinstance(value, list | tuple):
+        return [_config_value(v) for v in value]
+    return value
 
 
 def _is_plain(value: object) -> bool:
