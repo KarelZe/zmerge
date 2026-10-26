@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 INCLUDE = "!include"
+WILDCARD_INCLUDE = "*include"
 # Looked up in this order in included directories, like Zensical does.
 CONFIG_FILE_NAMES = ("zensical.toml", "mkdocs.yml", "mkdocs.yaml")
 _YAML_SUFFIXES = frozenset({".yml", ".yaml"})
@@ -246,6 +247,7 @@ class _Loader:
     ) -> tuple[NavItem, ...]:
         if not isinstance(raw, list):
             raise ZmergeError(f"{config_file}: `nav` must be a list")
+        raw = self._expand_wildcards(raw, config_file=config_file)
         overrides = zmerge.get("projects", {})
         self._ancestors.append(config_file)
         used: set[str] = set()
@@ -257,6 +259,46 @@ class _Loader:
         if unknown := sorted(set(overrides) - used):
             raise ZmergeError(f"{config_file}: `[zmerge.projects]` lists unknown project(s) {unknown}")
         return items
+
+    def _expand_wildcards(self, raw: list[object], *, config_file: Path) -> list[object]:
+        expanded = []
+        for entry in raw:
+            if isinstance(entry, str):
+                title, value = None, entry
+            elif isinstance(entry, dict) and len(entry) == 1:
+                title, value = next(iter(entry.items()))
+            else:
+                expanded.append(entry)
+                continue
+
+            if isinstance(value, str) and value.split(maxsplit=1)[0:1] == [WILDCARD_INCLUDE]:
+                pattern = value.removeprefix(WILDCARD_INCLUDE).strip()
+                if pattern.startswith(GIT_PREFIX):
+                    raise ZmergeError(f"{config_file}: `{WILDCARD_INCLUDE}` does not support git repositories")
+
+                matches = sorted(config_file.parent.glob(pattern))
+                if not matches:
+                    continue
+
+                wildcard_entries: list[object] = []
+                for match in matches:
+                    try:
+                        rel_path = match.relative_to(config_file.parent)
+                        path_str = rel_path.as_posix()
+                    except ValueError:
+                        path_str = match.resolve().as_posix()
+
+                    wildcard_entries.append(f"{INCLUDE} {path_str}")
+
+                if title is not None:
+                    expanded.append({title: wildcard_entries})
+                else:
+                    expanded.extend(wildcard_entries)
+            elif isinstance(value, list) and title is not None:
+                expanded.append({title: self._expand_wildcards(value, config_file=config_file)})
+            else:
+                expanded.append(entry)
+        return expanded
 
     def _item(
         self,

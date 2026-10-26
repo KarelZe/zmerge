@@ -47,6 +47,92 @@ def test_load_site_resolves_includes(make_project: Callable[..., Path]) -> None:
     assert [p.prefix for p in site.projects] == ["lev", "dame-rs"]
 
 
+def test_load_site_resolves_wildcard_includes(make_project: Callable[..., Path]) -> None:
+    make_project("projects/dame", {"site_name": "dame"})
+    make_project("projects/lev", {"site_name": "lev"})
+    umbrella = make_project(
+        "umbrella",
+        {
+            "nav": [
+                {"Home": "index.md"},
+                {"Projects": "*include ../projects/*/zensical.toml"},
+            ]
+        },
+    )
+
+    site = load_site(umbrella)
+
+    assert len(site.nav) == 2
+    home, projects = site.nav
+    assert home == Link(title="Home", target="index.md")
+
+    assert isinstance(projects, Section)
+    dame_include, lev_include = projects.items
+    assert isinstance(dame_include, Include)
+    assert dame_include.title == "dame"
+    assert dame_include.project.id == "dame"
+    assert dame_include.project.prefix == "dame"
+    assert isinstance(lev_include, Include)
+    assert lev_include.title == "lev"
+    assert lev_include.project.id == "lev"
+
+
+def test_load_site_resolves_wildcard_includes_bare(make_project: Callable[..., Path]) -> None:
+    make_project("projects/dame", {"site_name": "dame"})
+    make_project("projects/lev", {"site_name": "lev"})
+    umbrella = make_project(
+        "umbrella",
+        {
+            "nav": [
+                {"Home": "index.md"},
+                "*include ../projects/*/zensical.toml",
+            ]
+        },
+    )
+
+    site = load_site(umbrella)
+
+    assert len(site.nav) == 3
+    home, dame_flat, lev_flat = site.nav
+    assert home == Link(title="Home", target="index.md")
+
+    assert isinstance(dame_flat, Include)
+    assert isinstance(lev_flat, Include)
+    assert dame_flat.title == "dame"
+    assert lev_flat.title == "lev"
+
+
+def test_load_site_resolves_wildcard_includes_git_error(make_project: Callable[..., Path]) -> None:
+    umbrella = make_project(
+        "umbrella",
+        {
+            "nav": [
+                "*include git+https://github.com/*",
+            ]
+        },
+    )
+
+    with pytest.raises(ZmergeError, match="does not support git repositories"):
+        load_site(umbrella)
+
+
+def test_load_site_resolves_wildcard_includes_missing(make_project: Callable[..., Path]) -> None:
+    make_project("lev")
+    umbrella = make_project(
+        "umbrella",
+        {
+            "nav": [
+                {"Home": "index.md"},
+                "!include ../lev",
+                "*include ../missing/*",
+            ]
+        },
+    )
+    # Should silently continue if no matches
+    site = load_site(umbrella)
+    assert len(site.nav) == 2
+
+
 def test_prefix_override(make_project: Callable[..., Path]) -> None:
     make_project("lev")
     umbrella = make_project(
