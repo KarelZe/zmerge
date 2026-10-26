@@ -20,6 +20,7 @@ prefix = "levenshtein"
 
 from __future__ import annotations
 
+import os
 import re
 import tomllib
 import unicodedata
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 INCLUDE = "!include"
+WILDCARD_INCLUDE = "*include"
 # Looked up in this order in included directories, like Zensical does.
 CONFIG_FILE_NAMES = ("zensical.toml", "mkdocs.yml", "mkdocs.yaml")
 _YAML_SUFFIXES = frozenset({".yml", ".yaml"})
@@ -180,7 +182,7 @@ def load_site(config_file: Path, *, update: bool = True) -> Site:
     loader = _Loader(repos_dir=config_file.parent / STAGING_DIR / REPOS_DIR, update=update)
     nav = loader.nav(config["nav"], config_file=config_file, zmerge=zmerge, parent_prefix="")
     if not loader.prefixes:
-        raise ZmergeError(f"{config_file}: the umbrella `nav` contains no `{INCLUDE}` entry")
+        raise ZmergeError(f"{config_file}: the umbrella `nav` contains no `{INCLUDE}` or `{WILDCARD_INCLUDE}` entry")
     return Site(config_file=config_file, config=config, docs_dir=_docs_dir(config_file, config), nav=nav)
 
 
@@ -249,16 +251,17 @@ class _Loader:
         overrides = zmerge.get("projects", {})
         self._ancestors.append(config_file)
         used: set[str] = set()
-        items = tuple(
-            self._item(entry, config_file=config_file, overrides=overrides, parent_prefix=parent_prefix, used=used)
-            for entry in raw
-        )
+        items = []
+        for entry in raw:
+            items.extend(
+                self._items(entry, config_file=config_file, overrides=overrides, parent_prefix=parent_prefix, used=used)
+            )
         self._ancestors.pop()
         if unknown := sorted(set(overrides) - used):
             raise ZmergeError(f"{config_file}: `[zmerge.projects]` lists unknown project(s) {unknown}")
-        return items
+        return tuple(items)
 
-    def _item(
+    def _items(
         self,
         entry: object,
         *,
@@ -266,7 +269,7 @@ class _Loader:
         overrides: Mapping[str, Any],
         parent_prefix: str,
         used: set[str],
-    ) -> NavItem:
+    ) -> Iterator[NavItem]:
         if isinstance(entry, str):
             title, value = None, entry
         elif isinstance(entry, dict) and len(entry) == 1:
@@ -277,17 +280,54 @@ class _Loader:
         if isinstance(value, list):
             if title is None:  # pragma: no cover - a bare list is rejected by the branches above
                 raise ZmergeError(f"{config_file}: invalid nav entry {entry!r}")
-            children = tuple(
-                self._item(child, config_file=config_file, overrides=overrides, parent_prefix=parent_prefix, used=used)
-                for child in value
-            )
-            return Section(title=title, items=children)
+            children = []
+            for child in value:
+                children.extend(
+                    self._items(
+                        child, config_file=config_file, overrides=overrides, parent_prefix=parent_prefix, used=used
+                    )
+                )
+            yield Section(title=title, items=tuple(children))
+            return
+
         if not isinstance(value, str):
             raise ZmergeError(f"{config_file}: invalid nav entry {entry!r}")
-        if value.split(maxsplit=1)[0:1] != [INCLUDE]:
-            return Link(title=title, target=value)
 
-        include_file = self._include_file(value.removeprefix(INCLUDE).strip(), config_file=config_file)
+        if value.split(maxsplit=1)[0:1] == [INCLUDE]:
+            yield self._resolve_include(
+                title,
+                value.removeprefix(INCLUDE).strip(),
+                config_file=config_file,
+                overrides=overrides,
+                parent_prefix=parent_prefix,
+                used=used,
+            )
+            return
+
+        if value.split(maxsplit=1)[0:1] == [WILDCARD_INCLUDE]:
+            yield from self._resolve_wildcard(
+                title,
+                value,
+                config_file=config_file,
+                overrides=overrides,
+                parent_prefix=parent_prefix,
+                used=used,
+            )
+            return
+
+        yield Link(title=title, target=value)
+
+    def _resolve_include(
+        self,
+        title: str | None,
+        path: str,
+        *,
+        config_file: Path,
+        overrides: Mapping[str, Any],
+        parent_prefix: str,
+        used: set[str],
+    ) -> Include:
+        include_file = self._include_file(path, config_file=config_file)
         child_config, child_zmerge = _read_config(include_file)
         title = title or str(child_config["site_name"])
         project_id = slugify(title)
@@ -320,6 +360,61 @@ class _Loader:
             nav=nav,
         )
         return Include(title=title, project=project)
+
+    def _resolve_wildcard(
+        self,
+        title: str | None,
+        value: str,
+        *,
+        config_file: Path,
+        overrides: Mapping[str, Any],
+        parent_prefix: str,
+        used: set[str],
+    ) -> Iterator[NavItem]:
+        parts = value.split()
+        numeric = False
+        reverse = False
+        glob_pattern = None
+        for part in parts[1:]:
+            if part in ("-n", "--numeric"):
+                numeric = True
+            elif part in ("-r", "--reverse"):
+                reverse = True
+            else:
+                glob_pattern = part
+                break
+
+        if not glob_pattern:
+            raise ZmergeError(f"{config_file}: `{WILDCARD_INCLUDE}` needs a glob pattern")
+
+        candidates = list(config_file.parent.glob(glob_pattern))
+
+        def sort_key(path: Path) -> Any:
+            if numeric:
+                return [int(c) if c.isdigit() else c for c in re.split(r"(\d+)", str(path))]
+            return str(path)
+
+        candidates.sort(key=sort_key, reverse=reverse)
+
+        items = []
+        for match in candidates:
+            rel_path = os.path.relpath(match, config_file.parent).replace(os.sep, "/")
+            items.append(
+                self._resolve_include(
+                    None,
+                    rel_path,
+                    config_file=config_file,
+                    overrides=overrides,
+                    parent_prefix=parent_prefix,
+                    used=used,
+                )
+            )
+
+        if title is not None:
+            if items:
+                yield Section(title=title, items=tuple(items))
+        else:
+            yield from items
 
     def _include_file(self, path: str, *, config_file: Path) -> Path:
         if not path:
