@@ -54,15 +54,27 @@ def snapshot(paths: Iterable[Path]) -> Snapshot:
         if path.is_file():
             state[path] = _stat(path)
             continue
-        for dirpath, dirnames, filenames in os.walk(path):
-            dirnames[:] = [d for d in dirnames if not d.startswith(".")]
-            for filename in filenames:
-                file = Path(dirpath, filename)
-                try:
-                    state[file] = _stat(file)
-                except FileNotFoundError:  # pragma: no cover - deleted while walking
-                    continue
+        _scan(path, state)
     return state
+
+
+def _scan(path: Path | str, state: Snapshot) -> None:
+    try:
+        with os.scandir(path) as it:
+            for entry in it:
+                is_dir = entry.is_dir()
+                if is_dir and entry.name.startswith("."):
+                    continue
+                if entry.is_file():
+                    try:
+                        stat = entry.stat()
+                        state[Path(entry.path)] = stat.st_mtime_ns, stat.st_size, stat.st_ino
+                    except FileNotFoundError:  # pragma: no cover - deleted while walking
+                        pass
+                elif is_dir and not entry.is_symlink():
+                    _scan(entry.path, state)
+    except FileNotFoundError:  # pragma: no cover - deleted while scanning
+        pass
 
 
 def _stat(path: Path) -> tuple[int, int, int]:
