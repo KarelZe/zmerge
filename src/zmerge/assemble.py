@@ -39,6 +39,7 @@ if TYPE_CHECKING:
 GENERATED_CONFIG = ".zmerge.toml"
 
 _URL = re.compile(r"^(?:[a-zA-Z][a-zA-Z0-9+.-]*:|/|#)")
+_DIR_TITLE_RE = re.compile(r"[-_]+")
 _INDEX_PAGES = ("index.md", "README.md")
 
 
@@ -322,5 +323,5 @@ def _auto_nav(prefix: str, pages: list[str]) -> list[Any]:
 
 def _dir_title(name: str) -> str:
     """Derive a section title from a folder name like Zensical does, e.g. ``getting_started`` → ``Getting started``."""
-    title = re.sub(r"[-_]+", " ", name).strip()
+    title = _DIR_TITLE_RE.sub(" ", name).strip()
     return title[:1].upper() + title[1:]
