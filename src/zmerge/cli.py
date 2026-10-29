@@ -123,4 +123,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
     command = [sys.executable, "-m", "zensical", "build", "--config-file", str(assembly.config_file)]
     command += ["--strict"] * args.strict + zensical_args
-    return subprocess.run(command, cwd=site.root, check=False).returncode
+    try:
+        return subprocess.run(command, cwd=site.root, check=True).returncode
+    except subprocess.CalledProcessError as e:
+        return e.returncode
