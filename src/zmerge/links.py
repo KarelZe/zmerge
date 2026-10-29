@@ -47,7 +47,7 @@ class _Site:
 
 def rewrite_links(
     site: Site, files: Mapping[str, Source], *, excluded: Collection[str] = ()
-) -> tuple[dict[str, str], list[str]]:
+) -> tuple[dict[str, str], dict[str, str], list[str]]:
     """Rewrite the links of all Markdown files of the merged docs.
 
     Args:
@@ -56,17 +56,20 @@ def rewrite_links(
         excluded: Merged paths of pages to leave alone, e.g. pages excluded with ``exclude_docs``.
 
     Returns:
-        The new content of the files that changed, keyed by their merged path, and warnings about links that could
-        not be rewritten.
+        The new content of the files that changed, keyed by their merged path;
+        the unmodified contents of all read files;
+        and warnings about links that could not be rewritten.
     """
     projects = {p.prefix: p for p in site.projects}
     sites = _published_sites(site)
     rewritten: dict[str, str] = {}
+    cache: dict[str, str] = {}
     warnings: list[str] = []
     for path, source in files.items():
         if not path.endswith(".md") or path in excluded:
             continue
         text = source.path.read_text(encoding="utf-8")
+        cache[path] = text
         if "](" not in text and "]:" not in text:
             continue
         project = projects.get(source.owner)
@@ -77,7 +80,7 @@ def rewrite_links(
         new_text = rewrite_destinations(text, rewrite)
         if new_text != text:
             rewritten[path] = new_text
-    return rewritten, warnings
+    return rewritten, cache, warnings
 
 
 def rewrite_destinations(text: str, rewrite: Callable[[str], str]) -> str:

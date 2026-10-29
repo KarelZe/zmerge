@@ -54,6 +54,7 @@ def rewrite_directives(
     site: Site,
     files: Mapping[str, Source],
     rewritten: dict[str, str],
+    cache: dict[str, str],
     merged: MergedConfig,
     *,
     excluded: Collection[str] = (),
@@ -64,6 +65,7 @@ def rewrite_directives(
         site: The umbrella site.
         files: The merged files.
         rewritten: New content of changed files, keyed by merged path. Updated in place.
+        cache: Unmodified content of files, keyed by merged path.
         merged: The merged configuration.
         excluded: Merged paths of pages to leave alone, e.g. pages excluded with ``exclude_docs``.
     """
@@ -81,7 +83,9 @@ def rewrite_directives(
             continue
         text = rewritten.get(path)
         if text is None:
-            text = source.path.read_text(encoding="utf-8")
+            text = cache.get(path)
+            if text is None:
+                text = source.path.read_text(encoding="utf-8")
         new_text = text
         if base_paths is not None and "8<-" in new_text:
             new_text = rewrite_snippets(new_text, base_paths)
