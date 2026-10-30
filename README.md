@@ -74,4 +74,5 @@ uv run zmerge serve
 ```
 
 > [!WARNING]
-> zmerge is not affiliated with the Zensical project.
+> zmerge is not affiliated with the Zensical project. It is purely meant as a temporary solution until Zensical ships
+> official support for merging projects, tracked in [zensical/backlog#22](https://github.com/zensical/backlog/issues/22).
