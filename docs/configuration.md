@@ -1,6 +1,6 @@
 # Configuration
 
-Configure zmerge in the umbrella project's `zensical.toml`.
+Configure zmerge in the umbrella project's `zensical.toml` or `mkdocs.yml`.
 
 ## Including projects
 
@@ -48,10 +48,17 @@ repositories, and it's an error if it matches nothing.
 
 Projects configured with an `mkdocs.yml` can be included like those with a `zensical.toml`, e.g.
 `!include ../typer/mkdocs.yml`. In a directory, zmerge looks for `zensical.toml`, `mkdocs.yml` and `mkdocs.yaml`, in
-this order, like Zensical. zmerge reads `mkdocs.yml` like Zensical does: it resolves `INHERIT` and `!ENV`, keeps Python
-tags like `!!python/name:pymdownx.superfences.fence_code_format` and renames `material.extensions` to
-`zensical.extensions`. Set zmerge options of an `mkdocs.yml` in its `zmerge` key. The umbrella project needs a
-`zensical.toml`.
+this order, like Zensical. zmerge reads `mkdocs.yml` like Zensical does, including `INHERIT`, `!ENV` and Python tags.
+
+The umbrella project can use an `mkdocs.yml`, too; pass it with `zmerge build -f mkdocs.yml`. Set zmerge options of an
+`mkdocs.yml` in its `zmerge` key:
+
+```yaml
+zmerge:
+  projects:
+    typer:
+      prefix: tools/typer
+```
 
 ## Prefixes
 
@@ -64,8 +71,15 @@ file that contains the include:
 prefix = "tools/typer"
 ```
 
+Sections don't change the prefix: Typer in the `Tools` section above is served at `typer/`, unless you set its prefix
+as shown.
+
 A prefix may have several segments of letters, digits, `.`, `_` and `-`. A segment must not start with `.` or be
 `templates`, because Zensical ignores these directories.
+
+Prefixes must be unique, and so must the titles of the includes in one configuration file. zmerge also fails if two
+files end up at the same path, e.g. the umbrella's `docs/lev/index.md` and the `lev` project's index page; change a
+prefix to resolve it.
 
 ## Projects from git repositories
 
@@ -79,9 +93,9 @@ nav = [
 ]
 ```
 
-The ref (branch, tag or commit) defaults to the default branch. `subdirectory` points to the folder containing the
-`zensical.toml`. zmerge fetches repositories shallowly into `.zmerge/repos` and updates them on every run, using your
-usual git credentials. Pass `--no-fetch` to reuse them, e.g. when offline.
+The ref (branch, tag or commit) defaults to the default branch. `subdirectory` points to the project's folder or
+configuration file in the repository. zmerge fetches repositories shallowly into `.zmerge/repos` and updates them on
+every run, using your usual git credentials. Pass `--no-fetch` to reuse them, e.g. when offline.
 
 ## How project settings are merged
 

@@ -6,7 +6,7 @@ All commands accept these options:
 
 | Option | Description |
 | --- | --- |
-| `-f`, `--config-file` | Umbrella `zensical.toml`, default: `zensical.toml`. |
+| `-f`, `--config-file` | Umbrella `zensical.toml` or `mkdocs.yml`, default: `zensical.toml`. |
 | `--no-fetch` | Reuse fetched git repositories instead of updating them. |
 
 `zmerge build` and `zmerge serve` are drop-in replacements for `zensical build` and `zensical serve`: all other options
