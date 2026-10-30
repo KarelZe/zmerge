@@ -186,18 +186,19 @@ def test_rewrite_directives(tmp_path: Path) -> None:
     project.config = {}
     site = MagicMock(projects=[project])
 
-    (tmp_path / "pkg.md").write_text("::: pkg\n", encoding="utf-8")
     files = {
-        "pkg.md": MagicMock(owner="pkg", path=tmp_path / "pkg.md"),
-        "other.md": MagicMock(owner="pkg", path=tmp_path / "other.md"),
-        "file.txt": MagicMock(owner="pkg", path=tmp_path / "file.txt"),
+        "pkg.md": MagicMock(owner="pkg"),
+        "linked.md": MagicMock(owner="pkg"),
+        "other.md": MagicMock(owner="pkg"),
     }
-    rewritten = {"other.md": "::: other\n"}
+    pages = {"pkg.md": "::: pkg\n", "linked.md": "::: stale\n"}
+    # Pages whose links were rewritten are rewritten further; pages not in ``pages`` are left alone.
+    rewritten = {"linked.md": "::: linked\n", "other.md": "::: other\n"}
 
     merged = MagicMock(directive_options={"pkg": {"python": {"show_source": True}}}, default_handler="python")
 
-    rewrite_directives(site, files, rewritten, merged, excluded=["other.md"])
+    rewrite_directives(site, files, pages, rewritten, merged)
 
     assert rewritten["pkg.md"] == "::: pkg\n    options:\n      show_source: true\n"
+    assert rewritten["linked.md"] == "::: linked\n    options:\n      show_source: true\n"
     assert rewritten["other.md"] == "::: other\n"
-    assert "file.txt" not in rewritten
