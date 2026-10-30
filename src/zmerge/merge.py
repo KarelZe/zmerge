@@ -265,37 +265,25 @@ def _rebase_mkdocstrings(options: dict[str, Any], *, root: Path, umbrella_root: 
 def _merge_mkdocstrings(
     merged: dict[str, Any], options: Mapping[str, Any], project: Project, warnings: list[str]
 ) -> None:
-    for key, value in options.items():
-        if key != "handlers":
-            if key not in merged:
-                merged[key] = value
-            elif merged[key] != value:
-                warnings.append(
-                    f"{project.config_file}: mkdocstrings option {key!r} differs from the merged site; "
-                    f"using {merged[key]!r}"
-                )
-            continue
-        handlers = merged.setdefault("handlers", {})
-        for name, handler in value.items():
-            target = handlers.setdefault(name, {})
-            for path in handler.get("paths", []):
-                if path not in target.setdefault("paths", []):
-                    target["paths"].append(path)
-            for option, option_value in handler.items():
-                if option == "paths":
-                    continue
-                if option == "options":
-                    # Differences are resolved per project, see `_directive_options`.
-                    for key, key_value in option_value.items():
-                        target.setdefault("options", {}).setdefault(key, key_value)
-                    continue
-                if option not in target:
-                    target[option] = option_value
-                elif target[option] != option_value:
-                    warnings.append(
-                        f"{project.config_file}: mkdocstrings `handlers.{name}.{option}` differs from the merged site; "
-                        f"using {target[option]!r}"
-                    )
+    options = dict(options)
+    handlers = options.pop("handlers", {})
+    for key in _merge_options(merged, options):
+        warnings.append(
+            f"{project.config_file}: mkdocstrings option {key!r} differs from the merged site; using {merged[key]!r}"
+        )
+    for name, handler in handlers.items():
+        handler = dict(handler)
+        target = merged.setdefault("handlers", {}).setdefault(name, {})
+        # Keep the order of the paths and drop duplicates.
+        target["paths"] = list(dict.fromkeys([*target.get("paths", []), *handler.pop("paths", [])]))
+        # Differences are resolved per project, see `_directive_options`.
+        if handler_options := handler.pop("options", None):
+            target["options"] = handler_options | target.get("options", {})
+        for option in _merge_options(target, handler):
+            warnings.append(
+                f"{project.config_file}: mkdocstrings `handlers.{name}.{option}` differs from the merged site; "
+                f"using {target[option]!r}"
+            )
 
 
 def _directive_options(
