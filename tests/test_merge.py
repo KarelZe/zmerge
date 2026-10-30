@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -9,7 +10,6 @@ from zmerge.merge import MergedConfig, merge_config, normalize_extensions
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from pathlib import Path
 
     from zmerge.config import Site
 
@@ -81,6 +81,17 @@ def test_warns_when_defaults_are_replaced(two_projects: Callable[..., Site]) -> 
 
     assert len(warnings) == 2
     assert all("relies on Zensical's default markdown extensions" in w for w in warnings)
+
+
+def test_warns_about_untitled_sections_without_navigation_indexes(two_projects: Callable[..., Site]) -> None:
+    lev = {"nav": [{"Guide": [{"": ["index.md"]}]}]}
+
+    _, warnings = unpack(merge_config(two_projects({}, lev)))
+    (warning,) = warnings
+    assert f"{Path('lev') / 'zensical.toml'}: nav has untitled sections" in warning
+
+    _, warnings = unpack(merge_config(two_projects({"theme": {"features": ["navigation.indexes"]}}, lev)))
+    assert warnings == []
 
 
 def test_plugins_are_combined(two_projects: Callable[..., Site]) -> None:

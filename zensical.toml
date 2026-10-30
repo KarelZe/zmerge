@@ -30,6 +30,7 @@ language = "en"
 features = [
   "content.code.copy",
   "content.code.annotate",
+  "navigation.indexes",
   "navigation.instant",
   "navigation.tracking",
   "navigation.top",

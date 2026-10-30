@@ -20,12 +20,12 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
 
-from zmerge.config import ZmergeError
+from zmerge.config import Section, ZmergeError
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from zmerge.config import Project, Site
+    from zmerge.config import NavItem, Project, Site
 
 _URL = re.compile(r"^(?:[a-zA-Z][a-zA-Z0-9+.-]*:|//)")
 _PATTERN_KEYS = ("exclude_docs", "draft_docs", "not_in_nav")
@@ -92,8 +92,24 @@ def merge_config(site: Site) -> MergedConfig:
         if patterns:
             config[key] = "\n".join(patterns) + "\n"
 
+    # Untitled sections show the title of their index page only with `navigation.indexes`, which the umbrella owns.
+    theme = config.get("theme")
+    if "navigation.indexes" not in (theme.get("features", []) if isinstance(theme, dict) else []):
+        warnings.extend(
+            f"{p.config_file}: nav has untitled sections; add `navigation.indexes` to the umbrella's theme features "
+            "to title them like their index page"
+            for p in projects
+            if _has_untitled_section(p.nav)
+        )
+
     config.pop("nav", None)
     return merged
+
+
+def _has_untitled_section(nav: tuple[NavItem, ...] | None) -> bool:
+    return any(
+        isinstance(item, Section) and (not item.title or _has_untitled_section(item.items)) for item in nav or ()
+    )
 
 
 def normalize_extensions(value: object, *, config_file: Path) -> dict[str, dict[str, Any]]:
