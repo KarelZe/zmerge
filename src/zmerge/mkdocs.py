@@ -30,11 +30,11 @@ _PYTHON_TAG = "tag:yaml.org,2002:python/"
 _ENABLE_KEYS = ("markdown_extensions", "plugins")
 
 
-class _Loader(yaml.SafeLoader):
+class SafeLoader(yaml.SafeLoader):
     """A safe loader with the tags Zensical supports in ``mkdocs.yml``."""
 
 
-def _construct_env(loader: _Loader, node: yaml.Node) -> Any:
+def _construct_env(loader: SafeLoader, node: yaml.Node) -> Any:
     """Resolve ``!ENV NAME`` and ``!ENV [NAME, ..., fallback]`` like Zensical."""
     default = None
     if isinstance(node, yaml.ScalarNode):
@@ -55,11 +55,11 @@ def _construct_env(loader: _Loader, node: yaml.Node) -> Any:
     return default
 
 
-def _construct_include(loader: _Loader, node: yaml.Node) -> str:
+def _construct_include(loader: SafeLoader, node: yaml.Node) -> str:
     return f"!include {loader.construct_scalar(node)}".strip()
 
 
-def _construct_python(loader: _Loader, suffix: str, node: yaml.Node) -> Any:
+def _construct_python(loader: SafeLoader, suffix: str, node: yaml.Node) -> Any:
     kind, _, name = suffix.partition(":")
     if kind == "name":
         return name
@@ -73,9 +73,9 @@ def _construct_python(loader: _Loader, suffix: str, node: yaml.Node) -> Any:
     )
 
 
-_Loader.add_constructor("!ENV", _construct_env)
-_Loader.add_constructor("!include", _construct_include)
-_Loader.add_multi_constructor(_PYTHON_TAG, _construct_python)
+SafeLoader.add_constructor("!ENV", _construct_env)
+SafeLoader.add_constructor("!include", _construct_include)
+SafeLoader.add_multi_constructor(_PYTHON_TAG, _construct_python)
 
 
 def load_mkdocs_config(config_file: Path) -> dict[str, Any]:
@@ -102,7 +102,7 @@ def _load(config_file: Path, *, ancestors: list[Path]) -> dict[str, Any]:
         raise ZmergeError(f"{config_file}: configuration file not found") from None
     text = text.replace("material.extensions", "zensical.extensions").replace("materialx", "zensical.extensions")
     try:
-        config = yaml.load(text, Loader=_Loader)
+        config = yaml.load(text, Loader=SafeLoader)
     except yaml.YAMLError as e:
         raise ZmergeError(f"{config_file}: invalid YAML: {e}") from None
     if config is None:
