@@ -2,128 +2,142 @@
 
 from __future__ import annotations
 
-import argparse
 import subprocess
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, Any
+
+import click
 
 from zmerge import __version__
 from zmerge.assemble import assemble
 from zmerge.config import ZmergeError, load_site
+from zmerge.errors import error, warn
 from zmerge.serve import serve
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable
+
+    from zmerge.assemble import Assembly
+    from zmerge.config import Site
+
+# Options unknown to zmerge are collected in `zensical_args` and passed to Zensical.
+PASS_THROUGH = {"ignore_unknown_options": True}
 
 
-def build_parser() -> argparse.ArgumentParser:
-    """Build the argument parser.
+class CliError(click.ClickException):
+    """A fatal error, reported like zmerge's other errors."""
 
-    Returns:
-        The configured argument parser.
-    """
-    parser = argparse.ArgumentParser(
-        prog="zmerge",
-        description="Merge the documentation of multiple Zensical projects into one site.",
-        allow_abbrev=False,
-    )
-    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    commands = parser.add_subparsers(dest="command", metavar="COMMAND")
+    def show(self, file: IO[Any] | None = None) -> None:
+        """Report the error on stderr."""
+        error(self.format_message())
 
-    # Options unknown to zmerge are passed to Zensical. No abbreviations, so they can't be mistaken for zmerge's.
-    config = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
-    config.add_argument(
+
+def project_options(command: Callable[..., None]) -> Callable[..., None]:
+    """Add the options shared by all commands."""
+    command = click.option(
+        "--fetch/--no-fetch",
+        default=True,
+        help="Update fetched git repositories or reuse them.",
+    )(command)
+    return click.option(
         "-f",
         "--config-file",
-        type=Path,
-        default=Path("zensical.toml"),
-        help="umbrella configuration (default: %(default)s)",
-    )
-    config.add_argument(
-        "--no-fetch",
-        dest="fetch",
-        action="store_false",
-        help="reuse fetched git repositories instead of updating them",
-    )
-
-    commands.add_parser(
-        "assemble",
-        parents=[config],
-        help="write the merged Zensical project without building it",
-        description="Write the merged Zensical project (.zmerge.toml and .zmerge/) next to the umbrella config.",
-        allow_abbrev=False,
-    )
-    build = commands.add_parser(
-        "build",
-        parents=[config],
-        help="assemble and build the merged site with Zensical",
-        description="Assemble the merged Zensical project and build it with `zensical build`.",
-        epilog="Other options are passed to `zensical build`, e.g.:\n"
-        "  -c, --clean           clean the Zensical build cache\n\n"
-        "See `zensical build --help`.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        allow_abbrev=False,
-    )
-    build.add_argument("-s", "--strict", action="store_true", help="abort on zmerge or Zensical warnings")
-    commands.add_parser(
-        "serve",
-        parents=[config],
-        help="serve the merged site and re-assemble it on changes",
-        description="Serve the merged site with `zensical serve` and re-assemble it when a project changes.",
-        epilog="Other options are passed to `zensical serve`, e.g.:\n"
-        "  -a, --dev-addr IP:PORT\n"
-        "                        IP address and port (default: localhost:8000)\n"
-        "  -o, --open            open the preview in the default browser\n\n"
-        "See `zensical serve --help`.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        allow_abbrev=False,
-    )
-    return parser
+        type=click.Path(dir_okay=False, path_type=Path),
+        default="zensical.toml",
+        show_default=True,
+        help="Umbrella configuration.",
+    )(command)
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    """Run the command line interface.
+def zensical_arguments(command: Callable[..., None]) -> Callable[..., None]:
+    """Collect the arguments passed to Zensical."""
+    return click.argument("zensical_args", nargs=-1, type=click.UNPROCESSED)(command)
+
+
+def load(config_file: Path, *, fetch: bool) -> tuple[Site, Assembly]:
+    """Load and assemble the merged site and report zmerge's warnings.
 
     Args:
-        argv: Command line arguments without the program name. Defaults to ``sys.argv[1:]``.
+        config_file: Path to the umbrella configuration.
+        fetch: Whether to update fetched git repositories.
 
     Returns:
-        The exit code.
+        The loaded site and its assembly.
+
+    Raises:
+        CliError: If the site can't be merged.
     """
-    parser = build_parser()
-    args, zensical_args = parser.parse_known_args(argv)
-    if zensical_args[:1] == ["--"]:
-        zensical_args = zensical_args[1:]
-    if zensical_args and args.command not in {"build", "serve"}:
-        parser.error(f"unrecognized arguments: {' '.join(zensical_args)}")
-    if args.command is None:
-        parser.print_help()
-        return 0
-    if args.command == "serve":
-        try:
-            return serve(args.config_file, zensical_args, update=args.fetch)
-        except ZmergeError as e:
-            print(f"zmerge: error: {e}", file=sys.stderr)
-            return 1
     try:
-        site = load_site(args.config_file, update=args.fetch)
+        site = load_site(config_file, update=fetch)
         assembly = assemble(site)
     except ZmergeError as e:
-        print(f"zmerge: error: {e}", file=sys.stderr)
-        return 1
+        raise CliError(str(e)) from e
     for warning in assembly.warnings:
-        print(f"zmerge: warning: {warning}", file=sys.stderr)
-    if args.command == "assemble":
-        print(assembly.config_file)
-        return 0
+        warn(warning)
+    return site, assembly
 
-    if args.strict and assembly.warnings:
-        print("zmerge: aborted because --strict is set", file=sys.stderr)
-        return 1
+
+@click.version_option(__version__, "--version", prog_name="zmerge", message="%(prog)s %(version)s")
+@click.group("zmerge", context_settings={"help_option_names": ["-h", "--help"]})
+def main() -> None:
+    """Merge the documentation of multiple Zensical projects into one site."""
+
+
+@main.command("assemble")
+@project_options
+def assemble_command(config_file: Path, fetch: bool) -> None:
+    """Write the merged Zensical project (.zmerge.toml and .zmerge/) next to the umbrella config."""
+    _, assembly = load(config_file, fetch=fetch)
+    click.echo(assembly.config_file)
+
+
+@main.command(
+    "build",
+    help="Assemble the merged Zensical project and build it with `zensical build`.",
+    epilog="\b\nOther options are passed to `zensical build`, e.g.:\n"
+    "  -c, --clean  Clean the Zensical build cache.\n"
+    "See `zensical build --help`.",
+    context_settings=PASS_THROUGH,
+)
+@project_options
+@click.option("-s", "--strict", is_flag=True, help="Abort on zmerge or Zensical warnings.")
+@zensical_arguments
+def build_command(config_file: Path, fetch: bool, strict: bool, zensical_args: tuple[str, ...]) -> None:
+    """Assemble the merged project and build it with ``zensical build``.
+
+    Raises:
+        CliError: If --strict is set and zmerge warns.
+    """
+    site, assembly = load(config_file, fetch=fetch)
+    if strict and assembly.warnings:
+        raise CliError("aborted because --strict is set")
     command = [sys.executable, "-m", "zensical", "build", "--config-file", str(assembly.config_file)]
-    command += ["--strict"] * args.strict + zensical_args
+    command += ["--strict"] * strict + list(zensical_args)
     try:
-        return subprocess.run(command, cwd=site.root, check=True).returncode
+        subprocess.run(command, cwd=site.root, check=True)
     except subprocess.CalledProcessError as e:
-        return e.returncode
+        sys.exit(e.returncode)
+
+
+@main.command(
+    "serve",
+    help="Serve the merged site with `zensical serve` and re-assemble it when a project changes.",
+    epilog="\b\nOther options are passed to `zensical serve`, e.g.:\n"
+    "  -a, --dev-addr IP:PORT  IP address and port (default: localhost:8000).\n"
+    "  -o, --open              Open the preview in the default browser.\n"
+    "See `zensical serve --help`.",
+    context_settings=PASS_THROUGH,
+)
+@project_options
+@zensical_arguments
+def serve_command(config_file: Path, fetch: bool, zensical_args: tuple[str, ...]) -> None:
+    """Serve the merged site with ``zensical serve`` and re-assemble it on changes.
+
+    Raises:
+        CliError: If the site can't be merged.
+    """
+    try:
+        sys.exit(serve(config_file, list(zensical_args), update=fetch))
+    except ZmergeError as e:
+        raise CliError(str(e)) from e

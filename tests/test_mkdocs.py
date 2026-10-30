@@ -4,6 +4,7 @@ import textwrap
 from typing import TYPE_CHECKING
 
 import pytest
+from click.testing import CliRunner
 
 from zmerge.cli import main
 from zmerge.config import ZmergeError, load_site
@@ -169,7 +170,7 @@ def test_build_with_mkdocs_project(make_project: Callable[..., Path], tmp_path: 
         {"markdown_extensions": {"toc": {"permalink": True}}, "nav": ["!include ../lev", "!include ../typer"]},
     )
 
-    assert main(["build", "--strict", "-f", str(umbrella)]) == 0
+    assert CliRunner().invoke(main, ["build", "--strict", "-f", str(umbrella)]).exit_code == 0
 
     html = (umbrella.parent / "site" / "typer" / "index.html").read_text(encoding="utf-8")
     assert '<pre class="mermaid">' in html

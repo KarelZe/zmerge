@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
+from click.testing import CliRunner
 
 from zmerge import __version__
 from zmerge.cli import main
@@ -17,11 +18,10 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def test_version(capsys: pytest.CaptureFixture[str]) -> None:
-    with pytest.raises(SystemExit) as excinfo:
-        main(["--version"])
-    assert excinfo.value.code == 0
-    assert capsys.readouterr().out.strip() == f"zmerge {__version__}"
+def test_version() -> None:
+    result = CliRunner().invoke(main, ["--version"])
+    assert result.exit_code == 0
+    assert result.stdout.strip() == f"zmerge {__version__}"
 
 
 def test_module_entry_point() -> None:
@@ -35,29 +35,26 @@ def test_console_scripts(name: str) -> None:
     assert script.value == "zmerge.cli:main"
 
 
-def test_no_arguments_prints_help_and_lists_commands(capsys: pytest.CaptureFixture[str]) -> None:
-    assert main([]) == 0
-    out = capsys.readouterr().out
-    assert "usage: zmerge" in out
+def test_no_arguments_prints_help_and_lists_commands() -> None:
+    out = CliRunner().invoke(main, []).output
+    assert "Usage: zmerge" in out
     assert "assemble" in out
     assert "build" in out
 
 
-def test_assemble_prints_generated_config(
-    make_project: Callable[..., Path], capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_assemble_prints_generated_config(make_project: Callable[..., Path]) -> None:
     make_project("lev")
     umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}]})
 
-    assert main(["assemble", "-f", str(umbrella)]) == 0
-    assert capsys.readouterr().out.strip() == str(umbrella.parent / ".zmerge.toml")
+    result = CliRunner().invoke(main, ["assemble", "-f", str(umbrella)])
+    assert result.exit_code == 0
+    assert result.stdout.strip() == str(umbrella.parent / ".zmerge.toml")
 
 
-def test_assemble_rejects_zensical_options(capsys: pytest.CaptureFixture[str]) -> None:
-    with pytest.raises(SystemExit) as excinfo:
-        main(["assemble", "--clean"])
-    assert excinfo.value.code == 2
-    assert "unrecognized arguments: --clean" in capsys.readouterr().err
+def test_assemble_rejects_zensical_options() -> None:
+    result = CliRunner().invoke(main, ["assemble", "--clean"])
+    assert result.exit_code == 2
+    assert "No such option '--clean'" in result.stderr
 
 
 @pytest.mark.parametrize(
@@ -76,16 +73,17 @@ def test_build_passes_options_to_zensical(
 
     with mock.patch("zmerge.cli.subprocess.run") as run:
         run.return_value.returncode = 0
-        assert main(["build", "-f", str(umbrella), *argv]) == 0
+        assert CliRunner().invoke(main, ["build", "-f", str(umbrella), *argv]).exit_code == 0
 
     command = run.call_args.args[0]
     assert command[3:6] == ["build", "--config-file", str(umbrella.parent / ".zmerge.toml")]
     assert command[6:] == expected
 
 
-def test_invalid_config_reports_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["build", "-f", str(tmp_path / "zensical.toml")]) == 1
-    assert "zmerge: error:" in capsys.readouterr().err
+def test_invalid_config_reports_error(tmp_path: Path) -> None:
+    result = CliRunner().invoke(main, ["build", "-f", str(tmp_path / "zensical.toml")])
+    assert result.exit_code == 1
+    assert "zmerge: error:" in result.stderr
 
 
 def test_build_merged_site(make_project: Callable[..., Path]) -> None:
@@ -97,7 +95,7 @@ def test_build_merged_site(make_project: Callable[..., Path]) -> None:
         files={"index.md": "# Projects\n\n- [lev](lev/index.md)\n- [dame](dame/rules.md)\n"},
     )
 
-    assert main(["build", "--strict", "-f", str(umbrella)]) == 0
+    assert CliRunner().invoke(main, ["build", "--strict", "-f", str(umbrella)]).exit_code == 0
 
     site = umbrella.parent / "site"
     assert (site / "lev" / "index.html").is_file()
@@ -115,7 +113,7 @@ def test_build_restores_structured_mkdocstrings_defaults(make_project: Callable[
         (config.parent / f"{name}_api.py").write_text(f'def _{name}_private():\n    """Private."""\n', encoding="utf-8")
     umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}, {"dame": "!include ../dame"}]})
 
-    assert main(["build", "--strict", "-f", str(umbrella)]) == 0
+    assert CliRunner().invoke(main, ["build", "--strict", "-f", str(umbrella)]).exit_code == 0
 
     site = umbrella.parent / "site"
     assert "_lev_private" in (site / "lev" / "index.html").read_text(encoding="utf-8")
@@ -127,17 +125,16 @@ def test_build_strict_fails_on_broken_links(make_project: Callable[..., Path]) -
     make_project("lev", files={"index.md": "# lev\n\n[missing](missing.md)\n"})
     umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}]})
 
-    assert main(["build", "--strict", "-f", str(umbrella)]) != 0
+    assert CliRunner().invoke(main, ["build", "--strict", "-f", str(umbrella)]).exit_code != 0
 
 
-def test_build_strict_aborts_on_zmerge_warnings(
-    make_project: Callable[..., Path], capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_build_strict_aborts_on_zmerge_warnings(make_project: Callable[..., Path]) -> None:
     make_project("lev", {"plugins": {"tags": {"listings": True}}})
     make_project("dame", {"plugins": {"tags": {"listings": False}}})
     umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}, {"dame": "!include ../dame"}]})
 
-    assert main(["build", "--strict", "-f", str(umbrella)]) == 1
-    err = capsys.readouterr().err
+    result = CliRunner().invoke(main, ["build", "--strict", "-f", str(umbrella)])
+    assert result.exit_code == 1
+    err = result.stderr
     assert "zmerge: warning:" in err
     assert "aborted because --strict is set" in err

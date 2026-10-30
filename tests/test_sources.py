@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
+from click.testing import CliRunner
 
 from zmerge.cli import main
 from zmerge.config import ZmergeError, load_site
@@ -114,16 +115,16 @@ def test_build_with_git_include(repo: Path, make_project: Callable[..., Path]) -
         {"nav": [{"lev": f"!include git+{repo.as_uri()}"}, {"sub": f"!include git+{repo.as_uri()}#subdirectory=sub"}]},
     )
 
-    assert main(["build", "--strict", "-f", str(umbrella)]) == 0
+    assert CliRunner().invoke(main, ["build", "--strict", "-f", str(umbrella)]).exit_code == 0
     (lev, sub) = load_site(umbrella, update=False).projects
     assert lev.config_file.is_relative_to(umbrella.parent / ".zmerge" / "repos")
     assert sub.docs_dir.name == "docs"
     assert "v1" in (umbrella.parent / "site" / "lev" / "index.html").read_text(encoding="utf-8")
 
     commit(repo, "# v2\n")
-    assert main(["build", "--no-fetch", "-f", str(umbrella)]) == 0
+    assert CliRunner().invoke(main, ["build", "--no-fetch", "-f", str(umbrella)]).exit_code == 0
     assert "v1" in (umbrella.parent / "site" / "lev" / "index.html").read_text(encoding="utf-8")
-    assert main(["build", "-f", str(umbrella)]) == 0
+    assert CliRunner().invoke(main, ["build", "-f", str(umbrella)]).exit_code == 0
     assert "v2" in (umbrella.parent / "site" / "lev" / "index.html").read_text(encoding="utf-8")
 
 

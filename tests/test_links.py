@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+from click.testing import CliRunner
 
 from zmerge.assemble import assemble
 from zmerge.cli import main
@@ -173,7 +174,7 @@ def test_build_validates_rewritten_links(make_project: Callable[..., Path]) -> N
     make_project("lev", LEV, files={"index.md": "# lev\n\n[book](https://example.org/dame-rs/design/#opening-book)\n"})
     make_project("dame-rs", DAME, files={"index.md": "# dame\n", "design.md": "# Design\n\n## Opening book\n"})
     umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}, {"dame": "!include ../dame-rs"}]})
-    assert main(["build", "--strict", "-f", str(umbrella)]) == 0
+    assert CliRunner().invoke(main, ["build", "--strict", "-f", str(umbrella)]).exit_code == 0
 
     make_project("lev", LEV, files={"index.md": "# lev\n\n[book](https://example.org/dame-rs/design/#closing-book)\n"})
-    assert main(["build", "--strict", "-f", str(umbrella)]) != 0
+    assert CliRunner().invoke(main, ["build", "--strict", "-f", str(umbrella)]).exit_code != 0
