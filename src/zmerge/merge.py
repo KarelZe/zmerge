@@ -278,9 +278,12 @@ def _merge_mkdocstrings(
         handlers = merged.setdefault("handlers", {})
         for name, handler in value.items():
             target = handlers.setdefault(name, {})
+            target_paths = target.setdefault("paths", [])
+            seen_paths = set(target_paths)
             for path in handler.get("paths", []):
-                if path not in target.setdefault("paths", []):
-                    target["paths"].append(path)
+                if path not in seen_paths:
+                    target_paths.append(path)
+                    seen_paths.add(path)
             for option, option_value in handler.items():
                 if option == "paths":
                     continue
