@@ -86,15 +86,22 @@ def test_umbrella_pages_are_rewritten(merge: Callable[..., Assembly]) -> None:
 def test_code_is_left_untouched(merge: Callable[..., Assembly]) -> None:
     url = "https://example.org/dame-rs/"
     text = (
-        f"`[a]({url})` and ``[b]({url})``\n\n"
-        f"```md\n[c]({url})\n```\n\n"
+        f'`[a]({url})` and ``[b]({url})`` and `<{url}>` and `{url}` and `<a href="{url}">`\n\n'
+        f"```md\n[c]({url})\n<{url}>\n{url}\n```\n\n"
         f"~~~~\n```\n[d]({url})\n```\n~~~~\n\n"
         f"!!! note\n\n    ```\n    [e]({url})\n    ```\n\n    [f]({url})\n"
     )
 
+    expected = (
+        f'`[a]({url})` and ``[b]({url})`` and `<{url}>` and `{url}` and `<a href="{url}">`\n\n'
+        f"```md\n[c]({url})\n<{url}>\n{url}\n```\n\n"
+        f"~~~~\n```\n[d]({url})\n```\n~~~~\n\n"
+        f"!!! note\n\n    ```\n    [e]({url})\n    ```\n\n    [f](../dame/index.md)\n"
+    )
+
     assembly = merge({"index.md": text})
 
-    assert staged(assembly, "lev/index.md") == text.replace(f"[f]({url})", "[f](../dame/index.md)")
+    assert staged(assembly, "lev/index.md") == expected
 
 
 def test_link_syntax_variants(merge: Callable[..., Assembly]) -> None:

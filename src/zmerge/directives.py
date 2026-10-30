@@ -84,7 +84,16 @@ def rewrite_directives(
             text = source.path.read_text(encoding="utf-8")
         new_text = text
         if base_paths is not None and "8<-" in new_text:
-            new_text = rewrite_snippets(new_text, base_paths)
+            from zmerge.assemble import STAGING_DIR
+            from zmerge.links import _published_sites, _rewrite
+
+            sites = _published_sites(site)
+
+            def rewrite(destination: str, *, page: str = path, proj: Project | None = project) -> str:
+                return _rewrite(destination, page=page, project=proj, sites=sites, files=files, warnings=[])
+
+            snippet_staging_dir = site.root / STAGING_DIR / ".snippets" / path
+            new_text = rewrite_snippets(new_text, base_paths, rewrite=rewrite, snippet_staging_dir=snippet_staging_dir)
         new_text = rewrite_includes(new_text, mdx_base=mdx_base, variants_base=variants_base)
         if options and ":::" in new_text:
             new_text = inject_options(new_text, options, default_handler=merged.default_handler)
@@ -213,12 +222,16 @@ def _dedent(block: str, indent: str) -> str:
     return "\n".join(line[width:] for line in lines)
 
 
-def rewrite_snippets(text: str, base_paths: list[Path]) -> str:
+def rewrite_snippets(
+    text: str, base_paths: list[Path], rewrite: Any = None, snippet_staging_dir: Path | None = None
+) -> str:
     """Replace the paths of snippets that exist in ``base_paths`` with absolute paths.
 
     Args:
         text: Markdown source.
         base_paths: Absolute base paths of the project's snippets.
+        rewrite: Optional function to rewrite links in the snippet content.
+        snippet_staging_dir: Optional staging directory to save rewritten snippets.
 
     Returns:
         The Markdown source with absolute snippet paths.
@@ -232,17 +245,23 @@ def rewrite_snippets(text: str, base_paths: list[Path]) -> str:
                 in_block = not in_block
             else:
                 start, end = match.span("snippet")
-                lines[i] = line[:start] + _resolve(match.group("snippet"), base_paths) + line[end:]
+                lines[i] = (
+                    line[:start]
+                    + _resolve(match.group("snippet"), base_paths, rewrite, snippet_staging_dir)
+                    + line[end:]
+                )
             continue
         if in_block and line.strip() and not line.lstrip().startswith(";"):
             content = line.rstrip("\r\n")
             stripped = content.strip()
             start = content.index(stripped)
-            lines[i] = content[:start] + _resolve(stripped, base_paths) + line[len(content) :]
+            lines[i] = (
+                content[:start] + _resolve(stripped, base_paths, rewrite, snippet_staging_dir) + line[len(content) :]
+            )
     return "".join(lines)
 
 
-def _resolve(snippet: str, base_paths: list[Path]) -> str:
+def _resolve(snippet: str, base_paths: list[Path], rewrite: Any = None, snippet_staging_dir: Path | None = None) -> str:
     if "://" in snippet:
         return snippet
     match = _SNIPPET_FILE.match(snippet)
@@ -250,5 +269,18 @@ def _resolve(snippet: str, base_paths: list[Path]) -> str:
     for base in base_paths:
         candidate = (base / filename).resolve()
         if candidate.is_relative_to(base) and candidate.is_file():
+            if rewrite is not None and snippet_staging_dir is not None:
+                try:
+                    content = candidate.read_text(encoding="utf-8")
+                    from zmerge.links import rewrite_destinations
+
+                    new_content = rewrite_destinations(content, rewrite)
+                    if new_content != content:
+                        staged = snippet_staging_dir / filename
+                        staged.parent.mkdir(parents=True, exist_ok=True)
+                        staged.write_text(new_content, encoding="utf-8")
+                        return staged.as_posix() + suffix
+                except Exception:
+                    pass
             return candidate.as_posix() + suffix
     return snippet

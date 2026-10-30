@@ -34,6 +34,10 @@ _CODE_SPAN = re.compile(r"(`+)(.+?)\1")
 _INLINE_LINK = re.compile(r"\]\(\s*")
 _REFERENCE = re.compile(r"^ {0,3}\[[^\]]+\]:[ \t]*")
 _EDIT_URI = re.compile(r"^(.*?)(?:edit|blob|tree)/([^/]+)/")
+_AUTOLINK = re.compile(r"<([a-zA-Z][a-zA-Z0-9+.-]*:[^>\s]+)>")
+_HREF_SRC = re.compile(r"\b(?:href|src)\s*=\s*(['\"])(.*?)\1", re.IGNORECASE)
+_BARE_LINK = re.compile(r"(?<!<)\b(https?://[^\s<'\"]+)")
+_REWRITE_CANDIDATE = re.compile(r"\]\(|\]:|\b(?:href|src)\s*=|http|<", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -67,7 +71,7 @@ def rewrite_links(
         if not path.endswith(".md") or path in excluded:
             continue
         text = source.path.read_text(encoding="utf-8")
-        if "](" not in text and "]:" not in text:
+        if not _REWRITE_CANDIDATE.search(text):
             continue
         project = projects.get(source.owner)
 
@@ -101,7 +105,7 @@ def rewrite_destinations(text: str, rewrite: Callable[[str], str]) -> str:
     """
     lines = text.splitlines(keepends=True)
     for i, line in outside_fences(lines):
-        if "](" in line or "]:" in line:
+        if _REWRITE_CANDIDATE.search(line):
             lines[i] = _rewrite_line(line, rewrite)
     return "".join(lines)
 
@@ -135,6 +139,23 @@ def _rewrite_line(line: str, rewrite: Callable[[str], str]) -> str:
     if match := _REFERENCE.match(masked):
         spans.append(_destination(masked, match.end()))
     spans.extend(_destination(masked, m.end()) for m in _INLINE_LINK.finditer(masked))
+    spans.extend((m.start(2), m.end(2)) for m in _HREF_SRC.finditer(masked))
+    spans.extend((m.start(1), m.end(1)) for m in _AUTOLINK.finditer(masked))
+
+    masked_for_bare = list(masked)
+    for start, end in spans:
+        masked_for_bare[start:end] = [" "] * (end - start)
+    masked_bare_str = "".join(masked_for_bare)
+
+    for m in _BARE_LINK.finditer(masked_bare_str):
+        url = m.group(1)
+        while url and url[-1] in ".,;:?!":
+            url = url[:-1]
+        start = m.start(1)
+        spans.append((start, start + len(url)))
+
+    spans = list(set(spans))
+
     for start, end in sorted(spans, reverse=True):
         if start == end:
             continue
