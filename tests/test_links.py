@@ -119,6 +119,36 @@ def test_link_syntax_variants(merge: Callable[..., Assembly]) -> None:
     assert "logo.png matches no merged page" in warning
 
 
+def test_autolinks(merge: Callable[..., Assembly]) -> None:
+    text = "See <https://example.org/dame-rs/design/#opening-book> or <https://other.org/>.\n"
+
+    assembly = merge({"index.md": text})
+
+    assert staged(assembly, "lev/index.md") == (
+        "See [https://example.org/dame-rs/design/#opening-book](../dame/design.md#opening-book) "
+        "or <https://other.org/>.\n"
+    )
+
+
+def test_raw_html(merge: Callable[..., Assembly], tmp_path: Path) -> None:
+    (tmp_path / "lev" / "LICENSE").parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "lev" / "LICENSE").write_text("", encoding="utf-8")
+    url = "https://example.org/dame-rs/"
+    text = (
+        f'<a href="{url}design/#opening-book" class="x"><img src=\'{url}img/app.png\'></a>\n'
+        f'<a href="../../LICENSE">l</a> <a href="https://other.org/">o</a> `<a href="{url}">`\n'
+    )
+
+    assembly = merge({"index.md": "# lev\n", "guide/page.md": text})
+
+    # Zensical resolves links in raw HTML like Markdown links.
+    assert staged(assembly, "lev/guide/page.md") == (
+        '<a href="../../dame/design.md#opening-book" class="x"><img src=\'../../dame/img/app.png\'></a>\n'
+        '<a href="https://github.com/me/lev/blob/main/LICENSE">l</a> <a href="https://other.org/">o</a> '
+        f'`<a href="{url}">`\n'
+    )
+
+
 def test_links_leaving_the_docs_point_to_the_repository(merge: Callable[..., Assembly], tmp_path: Path) -> None:
     (tmp_path / "lev" / "src").mkdir(parents=True)
     (tmp_path / "lev" / "src" / "lib.rs").write_text("", encoding="utf-8")

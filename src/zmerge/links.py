@@ -11,7 +11,9 @@ Two kinds of links are rewritten:
   the merged site, they would resolve to unrelated files, so they become links to the file in the project's
   repository, derived from ``repo_url`` and ``edit_uri``.
 
-Links in fenced code blocks and inline code are left untouched.
+Both are rewritten in inline links, images, reference definitions, autolinks and the ``href`` and ``src`` attributes
+of raw HTML, which Zensical resolves like Markdown links. Links in fenced code blocks and inline code are left
+untouched.
 """
 
 from __future__ import annotations
@@ -34,6 +36,11 @@ _CODE_SPAN = re.compile(r"(`+)(.+?)\1")
 _INLINE_LINK = re.compile(r"\]\(\s*")
 _REFERENCE = re.compile(r"^ {0,3}\[[^\]]+\]:[ \t]*")
 _EDIT_URI = re.compile(r"^(.*?)(?:edit|blob|tree)/([^/]+)/")
+_AUTOLINK = re.compile(r"<(https?://[^\s<>]*)>")
+_HTML_TAG = re.compile(r"<[a-zA-Z][^<>]*>")
+_HTML_URL = re.compile(r"""\b(?:href|src)\s*=\s*(["'])(.*?)\1""")
+# Pages without any of these markers have no links to rewrite.
+_MARKERS = ("](", "]:", "<http", "href", "src")
 
 
 @dataclass(frozen=True)
@@ -64,7 +71,7 @@ def rewrite_links(
     rewritten: dict[str, str] = {}
     warnings: list[str] = []
     for path, text in pages.items():
-        if "](" not in text and "]:" not in text:
+        if not any(marker in text for marker in _MARKERS):
             continue
         project = projects.get(files[path].owner)
 
@@ -78,7 +85,11 @@ def rewrite_links(
 
 
 def rewrite_destinations(text: str, rewrite: Callable[[str], str]) -> str:
-    r"""Apply ``rewrite`` to the destination of every inline link, image and link reference definition.
+    r"""Apply ``rewrite`` to the destination of every link, image, link reference definition and autolink.
+
+    The ``href`` and ``src`` attributes of raw HTML count as destinations, too.
+
+    An autolink whose destination changes becomes an inline link with the URL as text.
 
     Args:
         text: Markdown source.
@@ -88,17 +99,19 @@ def rewrite_destinations(text: str, rewrite: Callable[[str], str]) -> str:
         The Markdown source with rewritten destinations.
 
     Examples:
-        >>> text = "[a](a.md) ![b](<b c.png> 'title') `[c](c.md)`\n[d]: d.md\n```\n[e](e.md)\n```\n"
+        >>> text = "[a](a.md) ![b](<b c.png> 'title') `[c](c.md)`\n[d]: d.md <http://e>\n```\n[f](f.md)\n```\n"
         >>> print(rewrite_destinations(text, str.upper), end="")
         [a](A.MD) ![b](<B C.PNG> 'title') `[c](c.md)`
-        [d]: D.MD
+        [d]: D.MD [http://e](HTTP://E)
         ```
-        [e](e.md)
+        [f](f.md)
         ```
+        >>> rewrite_destinations('<a href="a.md">a</a>', str.upper)
+        '<a href="A.MD">a</a>'
     """
     lines = text.splitlines(keepends=True)
     for i, line in outside_fences(lines):
-        if "](" in line or "]:" in line:
+        if any(marker in line for marker in _MARKERS):
             lines[i] = _rewrite_line(line, rewrite)
     return "".join(lines)
 
@@ -132,14 +145,27 @@ def _rewrite_line(line: str, rewrite: Callable[[str], str]) -> str:
     if match := _REFERENCE.match(masked):
         spans.append(_destination(masked, match.end()))
     spans.extend(_destination(masked, m.end()) for m in _INLINE_LINK.finditer(masked))
-    for start, end in sorted(spans, reverse=True):
+    edits: list[tuple[int, int, str]] = []
+    for start, end in spans:
         if start == end:
             continue
         destination = line[start:end]
         if destination.startswith("<") and destination.endswith(">"):
-            replacement = "<" + rewrite(destination[1:-1]) + ">"
+            edits.append((start, end, "<" + rewrite(destination[1:-1]) + ">"))
         else:
-            replacement = rewrite(destination)
+            edits.append((start, end, rewrite(destination)))
+    for match in _AUTOLINK.finditer(masked):
+        # Skip destinations in angle brackets, which were rewritten above.
+        if any(start == match.start() for start, _ in spans):
+            continue
+        url = match.group(1)
+        if (new_url := rewrite(url)) != url:
+            edits.append((*match.span(), f"[{url}]({new_url})"))
+    for tag in _HTML_TAG.finditer(masked):
+        for attribute in _HTML_URL.finditer(masked, tag.start(), tag.end()):
+            start, end = attribute.span(2)
+            edits.append((start, end, rewrite(line[start:end])))
+    for start, end, replacement in sorted(edits, reverse=True):
         line = line[:start] + replacement + line[end:]
     return line
 
