@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from zmerge.config import Include, Link, Section, ZmergeError, load_site
+from zmerge.config import Include, Link, Section, ZmergeError, load_site, slugify
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -152,3 +152,21 @@ def test_top_level_table_without_project(tmp_path: Path, make_project: Callable[
     config_file.write_text('site_name = "u"\nnav = [{ lev = "!include ../lev" }]\n', encoding="utf-8")
 
     assert [p.prefix for p in load_site(config_file).projects] == ["lev"]
+
+
+@pytest.mark.parametrize(
+    ("title", "expected"),
+    [
+        ("API Reference", "api-reference"),
+        ("Dämon Engine!", "damon-engine"),
+        ("Spaces   here", "spaces-here"),
+        ("Special chars @#$ %^&", "special-chars"),
+        ("Mixed_Case.with-Dash", "mixed_case.with-dash"),
+        ("-leading and trailing.", "leading-and-trailing"),
+        (".Multiple---hyphens...", "multiple-hyphens"),
+        ("123 Numbers", "123-numbers"),
+        ("Élève", "eleve"),
+    ],
+)
+def test_slugify(title: str, expected: str) -> None:
+    assert slugify(title) == expected
