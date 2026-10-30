@@ -7,7 +7,7 @@ from unittest import mock
 
 import pytest
 
-from zmerge.assemble import GENERATED_CONFIG, STAGING_DIR, assemble, collect_files
+from zmerge.assemble import GENERATED_CONFIG, STAGING_DIR, _write_if_changed, assemble, collect_files
 from zmerge.config import ZmergeError, load_site
 
 if TYPE_CHECKING:
@@ -285,3 +285,12 @@ def test_collect_files_with_prefixes(make_project: Callable[..., Path]) -> None:
     assert files["umbrella.md"].owner == ""
     assert files["nested/path/index.md"].owner == "nested/path"
     assert files["p2_pref/p2_specific.md"].owner == "p2_pref"
+
+
+def test_write_if_changed_overwrites_non_utf8_file(tmp_path: Path) -> None:
+    target = tmp_path / "page.md"
+    target.write_bytes(b"\xff")
+
+    _write_if_changed(target, "new text")
+
+    assert target.read_text(encoding="utf-8") == "new text"
