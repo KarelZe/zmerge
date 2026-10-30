@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
+from click.testing import CliRunner
 
 from zmerge.cli import main
 from zmerge.config import load_site
@@ -101,11 +102,17 @@ def test_cli_serve_passes_options(site_files: tuple[Path, Path]) -> None:
     umbrella, _ = site_files
 
     with mock.patch("zmerge.cli.serve", return_value=0) as serve_mock:
-        assert main(["serve", "-a", "localhost:9000", "-f", str(umbrella), "--open", "--strict"]) == 0
+        assert (
+            CliRunner()
+            .invoke(main, ["serve", "-a", "localhost:9000", "-f", str(umbrella), "--open", "--strict"])
+            .exit_code
+            == 0
+        )
 
     serve_mock.assert_called_once_with(umbrella, ["-a", "localhost:9000", "--open", "--strict"], update=True)
 
 
-def test_cli_serve_reports_errors(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["serve", "-f", str(tmp_path / "zensical.toml")]) == 1
-    assert "zmerge: error:" in capsys.readouterr().err
+def test_cli_serve_reports_errors(tmp_path: Path) -> None:
+    result = CliRunner().invoke(main, ["serve", "-f", str(tmp_path / "zensical.toml")])
+    assert result.exit_code == 1
+    assert "zmerge: error:" in result.stderr

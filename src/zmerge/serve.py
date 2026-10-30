@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 from zmerge.assemble import assemble
 from zmerge.config import ZmergeError, load_site
+from zmerge.errors import error, warn
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
@@ -118,7 +119,7 @@ def serve(
                 site = load_site(config_file, update=False)
                 assembly = assemble(site)
             except ZmergeError as e:
-                print(f"zmerge: error: {e}", file=sys.stderr)
+                error(str(e))
                 continue
             _report(assembly.warnings)
             print("zmerge: re-assembled the merged site", file=sys.stderr)
@@ -145,4 +146,4 @@ def _stop(process: subprocess.Popen[bytes]) -> None:
 
 def _report(warnings: list[str]) -> None:
     for warning in warnings:
-        print(f"zmerge: warning: {warning}", file=sys.stderr)
+        warn(warning)

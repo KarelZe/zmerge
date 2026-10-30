@@ -3,6 +3,8 @@ from __future__ import annotations
 import tomllib
 from typing import TYPE_CHECKING
 
+from click.testing import CliRunner
+
 from zmerge.assemble import assemble
 from zmerge.cli import main
 from zmerge.config import load_site
@@ -88,7 +90,7 @@ def test_snippets_resolve_per_project(make_project: Callable[..., Path], tmp_pat
         (tmp_path / name / "README.md").write_text(f"The {name} README.\n", encoding="utf-8")
     umbrella = make_project("umbrella", {**snippets, "nav": [{"lev": "!include ../lev"}, {"dame": "!include ../dame"}]})
 
-    assert main(["build", "--strict", "-f", str(umbrella)]) == 0
+    assert CliRunner().invoke(main, ["build", "--strict", "-f", str(umbrella)]).exit_code == 0
 
     site = umbrella.parent / "site"
     assert "The lev README." in (site / "lev" / "index.html").read_text(encoding="utf-8")
@@ -125,7 +127,7 @@ def test_mkdocstrings_options_per_project(make_project: Callable[..., Path], tmp
     assembly = assemble(load_site(umbrella))
     assert assembly.warnings == []
     assert "show_source: true" in (assembly.docs_dir / "dame" / "index.md").read_text(encoding="utf-8")
-    assert main(["build", "--strict", "-f", str(umbrella)]) == 0
+    assert CliRunner().invoke(main, ["build", "--strict", "-f", str(umbrella)]).exit_code == 0
 
     site = umbrella.parent / "site"
     assert "Source code in" not in (site / "lev" / "index.html").read_text(encoding="utf-8")
