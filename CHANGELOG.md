@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/KarelZe/zmerge/compare/0.4.0...0.4.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* warn about untitled nav sections without navigation.indexes 🐛 ([#70](https://github.com/KarelZe/zmerge/issues/70)) ([3877a09](https://github.com/KarelZe/zmerge/commit/3877a09c640d523ef923a39a403eb5067fa9ba3a))
+
 ## [0.4.0](https://github.com/KarelZe/zmerge/compare/0.3.0...0.4.0) (2026-10-30)
 
 
