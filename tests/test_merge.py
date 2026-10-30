@@ -278,3 +278,13 @@ def test_extension_options_are_merged_per_key(two_projects: Callable[..., Site])
 
     assert config["markdown_extensions"]["pymdownx.superfences"] == {"custom_fences": fences}
     assert warnings == []
+
+
+def test_handler_default_import_error() -> None:
+    import sys
+    import unittest.mock
+
+    from zmerge.merge import _MISSING, _handler_default
+
+    with unittest.mock.patch.dict(sys.modules, {"mkdocstrings_handlers.python": None}):
+        assert _handler_default("python", "some_key") == _MISSING
