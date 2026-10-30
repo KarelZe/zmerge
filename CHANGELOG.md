@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/KarelZe/zmerge/compare/0.3.0...0.4.0) (2026-10-30)
+
+
+### Features
+
+* support wildcard includes ✨ ([#65](https://github.com/KarelZe/zmerge/issues/65)) ([b6f86db](https://github.com/KarelZe/zmerge/commit/b6f86dbe8b6b6ecb84f5e61341a7a524678fbc16))
+
+
+### Bug Fixes
+
+* address unsafe yaml.load vulnerability in mkdocs.py🔒  ([#53](https://github.com/KarelZe/zmerge/issues/53)) ([b513763](https://github.com/KarelZe/zmerge/commit/b513763ae3ff2cd593420410234ee6aa75b881e0))
+
+
+### Performance
+
+* optimize directory title regular expression compilation⚡  ([#50](https://github.com/KarelZe/zmerge/issues/50)) ([12455ae](https://github.com/KarelZe/zmerge/commit/12455ae9314016e5ca47250029219d0129e53a83))
+* read each page once for link and directive rewrites ⚡ ([#64](https://github.com/KarelZe/zmerge/issues/64)) ([c160f3c](https://github.com/KarelZe/zmerge/commit/c160f3c049a526d198588e734dda8896601f71ab))
+
 ## [0.3.0](https://github.com/KarelZe/zmerge/compare/0.2.0...0.3.0) (2026-10-24)
 
 
