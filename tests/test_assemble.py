@@ -7,7 +7,7 @@ from unittest import mock
 
 import pytest
 
-from zmerge.assemble import GENERATED_CONFIG, STAGING_DIR, assemble
+from zmerge.assemble import GENERATED_CONFIG, STAGING_DIR, assemble, collect_files
 from zmerge.config import ZmergeError, load_site
 
 if TYPE_CHECKING:
@@ -248,3 +248,40 @@ def test_copies_are_refreshed_when_the_source_changes(make_project: Callable[...
         assembly = assemble(load_site(umbrella))
 
     assert (assembly.docs_dir / "lev" / "index.md").read_text(encoding="utf-8") == "# lev, longer\n"
+
+
+def test_collect_files_basic(make_project: Callable[..., Path]) -> None:
+    make_project("p0", files={"index.md": "# P0\n"})
+    umbrella_path = make_project("umbrella", {"nav": [{"p0": "!include ../p0"}]}, files={"index.md": "# Home\n"})
+    site = load_site(umbrella_path)
+
+    files = collect_files(site)
+
+    assert set(files.keys()) == {"index.md", "p0/index.md"}
+    assert files["index.md"].owner == ""
+    assert files["index.md"].path == site.docs_dir / "index.md"
+
+
+def test_collect_files_with_prefixes(make_project: Callable[..., Path]) -> None:
+    make_project("p1", files={"index.md": "# P1\n", "p1_specific.md": "content"})
+    make_project("p2", files={"index.md": "# P2\n", "p2_specific.md": "content"})
+    umbrella_path = make_project(
+        "umbrella2",
+        {"nav": [{"p1": "!include ../p1"}, {"p2": "!include ../p2"}]},
+        zmerge={"projects": {"p1": {"prefix": "nested/path"}, "p2": {"prefix": "p2_pref"}}},
+        files={"umbrella.md": "# Umbrella\n"},
+    )
+    site = load_site(umbrella_path)
+
+    files = collect_files(site)
+
+    assert set(files.keys()) == {
+        "umbrella.md",
+        "nested/path/index.md",
+        "nested/path/p1_specific.md",
+        "p2_pref/index.md",
+        "p2_pref/p2_specific.md",
+    }
+    assert files["umbrella.md"].owner == ""
+    assert files["nested/path/index.md"].owner == "nested/path"
+    assert files["p2_pref/p2_specific.md"].owner == "p2_pref"
