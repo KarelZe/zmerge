@@ -50,6 +50,7 @@ absolute URLs as above. Relative links out of the umbrella's `docs_dir` aren't r
 
 ## What is rewritten
 
-zmerge rewrites the destinations of inline links, images and reference definitions in Markdown, but not inside code.
-It skips pages excluded with `exclude_docs` in the umbrella project or a project, because Zensical doesn't build them.
-Links in raw HTML and in snippets aren't rewritten yet, see [limitations](limitations.md).
+zmerge rewrites the destinations of inline links, images, reference definitions and autolinks (`<https://…>`), and
+the `href` and `src` attributes of raw HTML, but not inside code. It skips pages excluded with `exclude_docs` in the
+umbrella project or a project, because Zensical doesn't build them. Links in snippets and bare URLs aren't rewritten
+yet, see [limitations](limitations.md).
