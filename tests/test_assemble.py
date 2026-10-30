@@ -100,6 +100,48 @@ def test_auto_nav_for_project_without_nav(make_project: Callable[..., Path]) -> 
     ]
 
 
+def test_untitled_section_takes_title_of_index_page(make_project: Callable[..., Path]) -> None:
+    # Like Typer, which relies on `navigation.indexes` to show the index page title for untitled sections.
+    nav = [
+        "index.md",
+        {"": ["tutorial/index.md", "tutorial/install.md", {"": ["tutorial/arguments/index.md"]}]},
+        {"": ["guide/README.md"]},
+        {"": [{"Custom": "faq/index.md"}]},
+        {"": ["misc/page.md"]},
+    ]
+    files = {
+        "index.md": "# lev\n",
+        "tutorial/index.md": "# Learn\n",
+        "tutorial/install.md": "# Install\n",
+        "tutorial/arguments/index.md": "```\n# not a title\n```\n# CLI Arguments\n",
+        "guide/README.md": "---\ntitle: Guide\n---\n# Heading\n",
+        "faq/index.md": "# FAQ\n",
+        "misc/page.md": "# Page\n",
+    }
+    make_project("lev", {"nav": nav}, files=files)
+    umbrella = make_project("umbrella", {"nav": [{"lev": "!include ../lev"}]})
+
+    assemble(load_site(umbrella))
+
+    assert read_generated(umbrella)["nav"] == [
+        {
+            "lev": [
+                "lev/index.md",
+                {
+                    "Learn": [
+                        "lev/tutorial/index.md",
+                        "lev/tutorial/install.md",
+                        {"CLI Arguments": ["lev/tutorial/arguments/index.md"]},
+                    ]
+                },
+                {"Guide": ["lev/guide/README.md"]},
+                {"Custom": [{"Custom": "lev/faq/index.md"}]},
+                {"": ["lev/misc/page.md"]},
+            ]
+        }
+    ]
+
+
 def test_auto_nav_ignores_files_of_other_projects(make_project: Callable[..., Path]) -> None:
     make_project("lev")
     make_project("extra", files={"page.md": "# Extra\n"})

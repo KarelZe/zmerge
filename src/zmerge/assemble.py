@@ -24,11 +24,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import tomli_w
+import yaml
 from pathspec import GitIgnoreSpec
 
 from zmerge.config import STAGING_DIR, Include, Link, Section, ZmergeError
 from zmerge.directives import rewrite_directives
-from zmerge.links import rewrite_links
+from zmerge.links import outside_fences, rewrite_links
 from zmerge.merge import merge_config
 
 if TYPE_CHECKING:
@@ -41,6 +42,8 @@ GENERATED_CONFIG = ".zmerge.toml"
 _URL = re.compile(r"^(?:[a-zA-Z][a-zA-Z0-9+.-]*:|/|#)")
 _DIR_TITLE_RE = re.compile(r"[-_]+")
 _INDEX_PAGES = ("index.md", "README.md")
+_FRONT_MATTER = re.compile(r"\A---[ \t]*\n(.*?\n)(?:---|\.\.\.)[ \t]*$", re.DOTALL | re.MULTILINE)
+_H1 = re.compile(r"^ {0,3}#[ \t]+(.+?)(?:[ \t]+#+)?(?:[ \t]*\{[^}]*\})?[ \t]*$")
 
 
 @dataclass(frozen=True)
@@ -280,10 +283,48 @@ def _convert_nav(
                     raise ZmergeError(f"{config_file}: nav entry {item.target!r} points to a missing page")
             nav.append(target if item.title is None else {item.title: target})
         elif isinstance(item, Section):
-            nav.append({item.title: _convert_nav(item.items, prefix=prefix, files=files, config_file=config_file)})
+            children = _convert_nav(item.items, prefix=prefix, files=files, config_file=config_file)
+            nav.append({item.title or _index_title(children, files): children})
         else:
             nav.append({item.title: _project_nav(item, files)})
     return nav
+
+
+def _index_title(items: list[Any], files: Mapping[str, Source]) -> str:
+    """Return the title of a section's index page, or ``""`` if there is none.
+
+    Projects using ``navigation.indexes`` may leave section titles empty, as the theme then shows the title of the
+    section's index page. The umbrella may not enable this feature, so zmerge fills in the title itself.
+    """
+    for item in items:
+        title, target = next(iter(item.items())) if isinstance(item, dict) else (None, item)
+        if isinstance(target, str) and posixpath.basename(target) in _INDEX_PAGES and target in files:
+            return title or _page_title(files[target].path.read_text(encoding="utf-8"))
+    return ""
+
+
+def _page_title(text: str) -> str:
+    r"""Return the title of a page like Zensical: the ``title`` in the front matter, else the first level 1 heading.
+
+    Examples:
+        >>> _page_title("---\ntitle: Front\n---\n# Heading\n")
+        'Front'
+        >>> _page_title("```\n# comment\n```\n# Heading { #id }\n")
+        'Heading'
+        >>> _page_title("---\nicon: book\n---\n## Subheading\n# Heading\n")
+        'Heading'
+        >>> _page_title("No heading\n")
+        ''
+    """
+    if match := _FRONT_MATTER.match(text):
+        meta = yaml.safe_load(match.group(1))
+        if isinstance(meta, dict) and isinstance(title := meta.get("title"), str):
+            return title
+        text = text[match.end() :]
+    for _, line in outside_fences(text.splitlines()):
+        if match := _H1.match(line):
+            return match.group(1)
+    return ""
 
 
 def _project_nav(include: Include, files: Mapping[str, Source]) -> list[Any]:
