@@ -25,6 +25,25 @@ prefixes are nested, e.g. `lev/core`.
 A project's section uses the project's own `nav`. Without one, zmerge generates it from the folder structure like
 Zensical does: index pages first, then pages and folders in alphabetical order.
 
+### Wildcard includes
+
+A `*include` entry includes every project matching a glob pattern, in alphabetical order. Each project is titled by
+its `site_name`. The pattern may match configuration files or directories containing one:
+
+```toml
+[project]
+site_name = "My projects"
+nav = [
+  { Home = "index.md" },
+  { Packages = [
+    "*include ../packages/*/zensical.toml",
+  ] },
+]
+```
+
+A `*include` can't have a title of its own; put it into a section instead. It only matches local paths, not git
+repositories, and it's an error if it matches nothing.
+
 ### Projects with an `mkdocs.yml`
 
 Projects configured with an `mkdocs.yml` can be included like those with a `zensical.toml`, e.g.

@@ -2,7 +2,7 @@
 
 The umbrella site is a regular ``zensical.toml``. Child projects are pulled into its navigation with an
 ``!include`` entry, mirroring the syntax of the mkdocs-monorepo-plugin. Projects are configured with a
-``zensical.toml`` or an ``mkdocs.yml``:
+``zensical.toml`` or an ``mkdocs.yml``. A ``*include`` entry includes every project matching a glob pattern:
 
 ```toml
 [project]
@@ -10,6 +10,7 @@ site_name = "My projects"
 nav = [
   { Home = "index.md" },
   { lev = "!include ../lev/zensical.toml" },
+  "*include ../packages/*/zensical.toml",
 ]
 
 # Optional per-project overrides, keyed by the project id (the slug of the nav title).
@@ -20,6 +21,7 @@ prefix = "levenshtein"
 
 from __future__ import annotations
 
+import glob
 import re
 import tomllib
 import unicodedata
@@ -35,6 +37,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 INCLUDE = "!include"
+WILDCARD_INCLUDE = "*include"
 # Looked up in this order in included directories, like Zensical does.
 CONFIG_FILE_NAMES = ("zensical.toml", "mkdocs.yml", "mkdocs.yaml")
 _YAML_SUFFIXES = frozenset({".yml", ".yaml"})
@@ -221,6 +224,21 @@ def _docs_dir(config_file: Path, config: Mapping[str, Any]) -> Path:
     return docs_dir
 
 
+def _directive(value: str) -> str | None:
+    return next(iter(value.split(maxsplit=1)), None)
+
+
+def _glob(pattern: str, *, config_file: Path) -> list[str]:
+    if not pattern:
+        raise ZmergeError(f"{config_file}: `{WILDCARD_INCLUDE}` needs a glob pattern")
+    if pattern.startswith(GIT_PREFIX):
+        raise ZmergeError(f"{config_file}: `{WILDCARD_INCLUDE}` doesn't support git repositories")
+    # Unlike `Path.glob`, `glob.glob` supports absolute patterns.
+    if not (matches := sorted(glob.glob(pattern, root_dir=config_file.parent))):  # ruff: ignore[glob]
+        raise ZmergeError(f"{config_file}: `{WILDCARD_INCLUDE} {pattern}` matches no projects")
+    return matches
+
+
 def _validate_prefix(prefix: str, *, config_file: Path) -> str:
     segments = prefix.strip("/").split("/")
     for segment in segments:
@@ -250,13 +268,38 @@ class _Loader:
         self._ancestors.append(config_file)
         used: set[str] = set()
         items = tuple(
-            self._item(entry, config_file=config_file, overrides=overrides, parent_prefix=parent_prefix, used=used)
-            for entry in raw
+            self._items(raw, config_file=config_file, overrides=overrides, parent_prefix=parent_prefix, used=used)
         )
         self._ancestors.pop()
         if unknown := sorted(set(overrides) - used):
             raise ZmergeError(f"{config_file}: `[zmerge.projects]` lists unknown project(s) {unknown}")
         return items
+
+    def _items(
+        self,
+        entries: list[object],
+        *,
+        config_file: Path,
+        overrides: Mapping[str, Any],
+        parent_prefix: str,
+        used: set[str],
+    ) -> Iterator[NavItem]:
+        for entry in entries:
+            if isinstance(entry, str) and _directive(entry) == WILDCARD_INCLUDE:
+                for path in _glob(entry.removeprefix(WILDCARD_INCLUDE).strip(), config_file=config_file):
+                    include_file = self._include_file(path, config_file=config_file)
+                    yield self._include(
+                        include_file,
+                        None,
+                        config_file=config_file,
+                        overrides=overrides,
+                        parent_prefix=parent_prefix,
+                        used=used,
+                    )
+            else:
+                yield self._item(
+                    entry, config_file=config_file, overrides=overrides, parent_prefix=parent_prefix, used=used
+                )
 
     def _item(
         self,
@@ -278,16 +321,32 @@ class _Loader:
             if title is None:  # pragma: no cover - a bare list is rejected by the branches above
                 raise ZmergeError(f"{config_file}: invalid nav entry {entry!r}")
             children = tuple(
-                self._item(child, config_file=config_file, overrides=overrides, parent_prefix=parent_prefix, used=used)
-                for child in value
+                self._items(value, config_file=config_file, overrides=overrides, parent_prefix=parent_prefix, used=used)
             )
             return Section(title=title, items=children)
         if not isinstance(value, str):
             raise ZmergeError(f"{config_file}: invalid nav entry {entry!r}")
-        if value.split(maxsplit=1)[0:1] != [INCLUDE]:
+        directive = _directive(value)
+        if directive == WILDCARD_INCLUDE:
+            raise ZmergeError(f"{config_file}: `{WILDCARD_INCLUDE}` can't have a title, put it in a section instead")
+        if directive != INCLUDE:
             return Link(title=title, target=value)
 
         include_file = self._include_file(value.removeprefix(INCLUDE).strip(), config_file=config_file)
+        return self._include(
+            include_file, title, config_file=config_file, overrides=overrides, parent_prefix=parent_prefix, used=used
+        )
+
+    def _include(
+        self,
+        include_file: Path,
+        title: str | None,
+        *,
+        config_file: Path,
+        overrides: Mapping[str, Any],
+        parent_prefix: str,
+        used: set[str],
+    ) -> Include:
         child_config, child_zmerge = _read_config(include_file)
         title = title or str(child_config["site_name"])
         project_id = slugify(title)

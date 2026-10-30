@@ -10,7 +10,6 @@ zmerge will be retired ([#18](https://github.com/KarelZe/zmerge/issues/18)). The
   ([#9](https://github.com/KarelZe/zmerge/issues/9)).
 - **Theme overrides, `extra` and analytics** of projects are ignored; only the umbrella's are used
   ([#10](https://github.com/KarelZe/zmerge/issues/10)).
-- **Wildcard includes** like `*include ./projects/*/zensical.toml` ([#12](https://github.com/KarelZe/zmerge/issues/12)).
 - **Conflicting JavaScript**, e.g. one project using MathJax and another KaTeX, is loaded on every page
   ([#13](https://github.com/KarelZe/zmerge/issues/13)).
 - **Markdown extensions apply to every page**, also to pages of projects that don't use them. Includes or macros of

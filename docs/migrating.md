@@ -1,6 +1,6 @@
 # Migrating from mkdocs-monorepo-plugin
 
-zmerge keeps the `!include` syntax of the [mkdocs-monorepo-plugin](https://github.com/backstage/mkdocs-monorepo-plugin):
+zmerge keeps the `!include` and `*include` syntax of the [mkdocs-monorepo-plugin](https://github.com/backstage/mkdocs-monorepo-plugin):
 
 1. Migrate the umbrella project from `mkdocs.yml` to `zensical.toml`, e.g. with Zensical's
    [migration guide](https://zensical.org/docs/setup/basics/). Projects can keep their `mkdocs.yml`.
@@ -27,5 +27,4 @@ nav = [
 | Plugins and markdown extensions of projects are ignored. | They are merged, including per-project mkdocstrings options. |
 | Files at the same path silently overwrite each other. | Collisions are errors. |
 | Includes are local files. | Includes can be git repositories. |
-| `*include` expands globs. | Not supported yet, see [#12](https://github.com/KarelZe/zmerge/issues/12). |
 | Per-project edit links. | Not supported yet, see [#9](https://github.com/KarelZe/zmerge/issues/9). |
