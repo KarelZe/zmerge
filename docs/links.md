@@ -50,6 +50,8 @@ build.
 
 ## What is rewritten
 
-zmerge rewrites the destinations of inline links, images and reference definitions in Markdown, but not inside code.
-It skips pages excluded with `exclude_docs` in the umbrella project or a project, because Zensical doesn't build them.
-Links in raw HTML and in snippets aren't rewritten yet, see [limitations](limitations.md).
+zmerge rewrites links where Zensical resolves relative links: the destinations of inline links, images and reference
+definitions, and the `href`, `src` and `srcset` attributes of raw HTML. Like Zensical, it leaves autolinks
+(`<https://…>`), bare URLs and links inside code unchanged. It skips pages excluded with `exclude_docs` in the umbrella
+project or a project, because Zensical doesn't build them. Links in snippets aren't rewritten yet, see
+[limitations](limitations.md).

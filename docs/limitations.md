@@ -13,5 +13,5 @@ These features aren't supported yet; the
   can't choose one for you ([#13](https://github.com/KarelZe/zmerge/issues/13)).
 - **Markdown extensions apply to every page**, also to pages of projects that don't use them. Includes or macros of
   one project can change text in another ([#36](https://github.com/KarelZe/zmerge/issues/36)).
-- **Links in raw HTML and in snippets** aren't rewritten ([#14](https://github.com/KarelZe/zmerge/issues/14)).
+- **Links in snippets** aren't rewritten ([#14](https://github.com/KarelZe/zmerge/issues/14)).
 - **Versioned docs** with mike ([#15](https://github.com/KarelZe/zmerge/issues/15)).
