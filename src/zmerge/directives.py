@@ -22,7 +22,7 @@ from zmerge.links import outside_fences
 from zmerge.merge import INCLUDE_VARIANTS, MDX_INCLUDE, SNIPPETS, normalize_extensions, snippet_base_paths
 
 if TYPE_CHECKING:
-    from collections.abc import Collection, Mapping
+    from collections.abc import Mapping
     from pathlib import Path
 
     from zmerge.assemble import Source
@@ -53,35 +53,32 @@ _INCLUDE_VARIANT = re.compile(r"^\{\*\s*(?P<path>\S+)\s*.*\*\}$", re.MULTILINE)
 def rewrite_directives(
     site: Site,
     files: Mapping[str, Source],
+    pages: Mapping[str, str],
     rewritten: dict[str, str],
     merged: MergedConfig,
-    *,
-    excluded: Collection[str] = (),
 ) -> None:
-    """Rewrite the mkdocstrings directives and snippets of all project pages in place.
+    """Rewrite the mkdocstrings directives and snippets of the project pages in place.
 
     Args:
         site: The umbrella site.
         files: The merged files.
+        pages: The content of the pages to rewrite, keyed by their merged path.
         rewritten: New content of changed files, keyed by merged path. Updated in place.
         merged: The merged configuration.
-        excluded: Merged paths of pages to leave alone, e.g. pages excluded with ``exclude_docs``.
     """
     projects = {p.prefix: p for p in site.projects}
     snippet_paths = {prefix: _snippet_paths(project) for prefix, project in projects.items()}
     include_paths = {prefix: _include_paths(project) for prefix, project in projects.items()}
-    for path, source in files.items():
-        project = projects.get(source.owner)
-        if project is None or not path.endswith(".md") or path in excluded:
+    for path in pages:
+        project = projects.get(files[path].owner)
+        if project is None:
             continue
         options = merged.directive_options.get(project.prefix)
         base_paths = snippet_paths[project.prefix]
         mdx_base, variants_base = include_paths[project.prefix]
         if not options and base_paths is None and mdx_base is None and variants_base is None:
             continue
-        text = rewritten.get(path)
-        if text is None:
-            text = source.path.read_text(encoding="utf-8")
+        text = rewritten.get(path, pages[path])
         new_text = text
         if base_paths is not None and "8<-" in new_text:
             new_text = rewrite_snippets(new_text, base_paths)

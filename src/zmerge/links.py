@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Collection, Iterator, Mapping
+    from collections.abc import Callable, Iterator, Mapping
 
     from zmerge.assemble import Source
     from zmerge.config import Project, Site
@@ -46,14 +46,14 @@ class _Site:
 
 
 def rewrite_links(
-    site: Site, files: Mapping[str, Source], *, excluded: Collection[str] = ()
+    site: Site, files: Mapping[str, Source], pages: Mapping[str, str]
 ) -> tuple[dict[str, str], list[str]]:
-    """Rewrite the links of all Markdown files of the merged docs.
+    """Rewrite the links of the Markdown pages of the merged docs.
 
     Args:
         site: The umbrella site.
         files: The merged files, keyed by their path relative to the merged docs directory.
-        excluded: Merged paths of pages to leave alone, e.g. pages excluded with ``exclude_docs``.
+        pages: The content of the pages to rewrite, keyed by their merged path.
 
     Returns:
         The new content of the files that changed, keyed by their merged path, and warnings about links that could
@@ -63,13 +63,10 @@ def rewrite_links(
     sites = _published_sites(site)
     rewritten: dict[str, str] = {}
     warnings: list[str] = []
-    for path, source in files.items():
-        if not path.endswith(".md") or path in excluded:
-            continue
-        text = source.path.read_text(encoding="utf-8")
+    for path, text in pages.items():
         if "](" not in text and "]:" not in text:
             continue
-        project = projects.get(source.owner)
+        project = projects.get(files[path].owner)
 
         def rewrite(destination: str, *, path: str = path, project: Project | None = project) -> str:
             return _rewrite(destination, page=path, project=project, sites=sites, files=files, warnings=warnings)

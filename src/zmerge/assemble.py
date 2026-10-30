@@ -90,8 +90,14 @@ def assemble(site: Site) -> Assembly:
     merged = merge_config(site)
     # Zensical doesn't build excluded pages, so their links and directives don't matter.
     excluded = excluded_pages(files, merged.config.get("exclude_docs"))
-    rewritten, link_warnings = rewrite_links(site, files, excluded=excluded)
-    rewrite_directives(site, files, rewritten, merged, excluded=excluded)
+    # Read each page once and share it between the link and directive rewrites.
+    pages = {
+        path: source.path.read_text(encoding="utf-8")
+        for path, source in files.items()
+        if path.endswith(".md") and path not in excluded
+    }
+    rewritten, link_warnings = rewrite_links(site, files, pages)
+    rewrite_directives(site, files, pages, rewritten, merged)
     _sync(files, docs_dir, rewritten)
     _write_if_changed(staging / ".gitignore", "*\n")
 
