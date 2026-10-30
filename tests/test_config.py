@@ -47,6 +47,53 @@ def test_load_site_resolves_includes(make_project: Callable[..., Path]) -> None:
     assert [p.prefix for p in site.projects] == ["lev", "dame-rs"]
 
 
+def test_wildcard_include(make_project: Callable[..., Path]) -> None:
+    lev = make_project("packages/lev", {"site_name": "lev"})
+    dame = make_project("packages/dame", {"site_name": "Dame"})
+    make_project("packages/typer", {"site_name": "typer"})
+    umbrella = make_project(
+        "umbrella",
+        {
+            "nav": [
+                {"Home": "index.md"},
+                "*include ../packages/[dl]*/zensical.toml",
+                {"Tools": [f"*include {lev.parent.parent / 't*'}"]},
+            ]
+        },
+    )
+
+    site = load_site(umbrella)
+
+    # Matches are included in alphabetical order and titled by their site name. Directories and absolute patterns work.
+    home, dame_include, lev_include, tools = site.nav
+    assert home == Link(title="Home", target="index.md")
+    assert isinstance(dame_include, Include)
+    assert dame_include.title == "Dame"
+    assert dame_include.project.config_file == dame
+    assert isinstance(lev_include, Include)
+    assert lev_include.project.config_file == lev
+    assert isinstance(tools, Section)
+    assert [item.title for item in tools.items] == ["typer"]
+    assert [p.prefix for p in site.projects] == ["dame", "lev", "typer"]
+
+
+@pytest.mark.parametrize(
+    ("entry", "message"),
+    [
+        ("*include", "needs a glob pattern"),
+        ("*include git+https://github.com/KarelZe/lev.git", "doesn't support git repositories"),
+        ("*include ../missing/*", "matches no projects"),
+        ({"Projects": "*include ../lev"}, "can't have a title"),
+    ],
+)
+def test_invalid_wildcard_include(make_project: Callable[..., Path], entry: object, message: str) -> None:
+    make_project("lev")
+    umbrella = make_project("umbrella", {"nav": ["!include ../lev", entry]})
+
+    with pytest.raises(ZmergeError, match=message):
+        load_site(umbrella)
+
+
 def test_prefix_override(make_project: Callable[..., Path]) -> None:
     make_project("lev")
     umbrella = make_project(
