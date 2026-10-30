@@ -6,7 +6,8 @@ These features aren't supported yet; the
 - **Edit and view links** of project pages point to the umbrella repository, because Zensical has no per-page edit URL
   ([#9](https://github.com/KarelZe/zmerge/issues/9)).
 - **Theme overrides, `extra` and analytics** of projects are ignored; only the umbrella's are used
-  ([#10](https://github.com/KarelZe/zmerge/issues/10)).
+  ([#10](https://github.com/KarelZe/zmerge/issues/10)). Projects with untitled nav sections, like Typer, need
+  `navigation.indexes` in the umbrella's theme features; zmerge warns otherwise.
 - **Conflicting JavaScript**, e.g. one project using MathJax and another KaTeX, is loaded on every page
   ([#13](https://github.com/KarelZe/zmerge/issues/13)).
 - **Markdown extensions apply to every page**, also to pages of projects that don't use them. Includes or macros of

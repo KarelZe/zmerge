@@ -83,6 +83,17 @@ def test_warns_when_defaults_are_replaced(two_projects: Callable[..., Site]) -> 
     assert all("relies on Zensical's default markdown extensions" in w for w in warnings)
 
 
+def test_warns_about_untitled_sections_without_navigation_indexes(two_projects: Callable[..., Site]) -> None:
+    lev = {"nav": [{"Guide": [{"": ["index.md"]}]}]}
+
+    _, warnings = unpack(merge_config(two_projects({}, lev)))
+    (warning,) = warnings
+    assert "lev/zensical.toml: nav has untitled sections" in warning
+
+    _, warnings = unpack(merge_config(two_projects({"theme": {"features": ["navigation.indexes"]}}, lev)))
+    assert warnings == []
+
+
 def test_plugins_are_combined(two_projects: Callable[..., Site]) -> None:
     site = two_projects(
         {"plugins": {"search": {}}},
