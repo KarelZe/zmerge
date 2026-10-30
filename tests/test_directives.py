@@ -175,3 +175,29 @@ def test_includes_resolve_per_project(make_project: Callable[..., Path], tmp_pat
     config = tomllib.loads(assembly.config_file.read_text(encoding="utf-8"))
     assert config["project"]["markdown_extensions"]["mdx_include"] == {}
     assert assembly.warnings == []
+
+
+def test_rewrite_directives(tmp_path: Path) -> None:
+    from unittest.mock import MagicMock
+
+    from zmerge.directives import rewrite_directives
+
+    project = MagicMock(prefix="pkg", config_file=tmp_path / "pkg.toml", root=tmp_path)
+    project.config = {}
+    site = MagicMock(projects=[project])
+
+    (tmp_path / "pkg.md").write_text("::: pkg\n", encoding="utf-8")
+    files = {
+        "pkg.md": MagicMock(owner="pkg", path=tmp_path / "pkg.md"),
+        "other.md": MagicMock(owner="pkg", path=tmp_path / "other.md"),
+        "file.txt": MagicMock(owner="pkg", path=tmp_path / "file.txt"),
+    }
+    rewritten = {"other.md": "::: other\n"}
+
+    merged = MagicMock(directive_options={"pkg": {"python": {"show_source": True}}}, default_handler="python")
+
+    rewrite_directives(site, files, rewritten, merged, excluded=["other.md"])
+
+    assert rewritten["pkg.md"] == "::: pkg\n    options:\n      show_source: true\n"
+    assert rewritten["other.md"] == "::: other\n"
+    assert "file.txt" not in rewritten
