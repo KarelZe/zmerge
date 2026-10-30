@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -9,7 +10,6 @@ from zmerge.merge import MergedConfig, merge_config, normalize_extensions
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from pathlib import Path
 
     from zmerge.config import Site
 
@@ -88,7 +88,7 @@ def test_warns_about_untitled_sections_without_navigation_indexes(two_projects: 
 
     _, warnings = unpack(merge_config(two_projects({}, lev)))
     (warning,) = warnings
-    assert "lev/zensical.toml: nav has untitled sections" in warning
+    assert f"{Path('lev') / 'zensical.toml'}: nav has untitled sections" in warning
 
     _, warnings = unpack(merge_config(two_projects({"theme": {"features": ["navigation.indexes"]}}, lev)))
     assert warnings == []
