@@ -22,14 +22,14 @@ links, a single navigation and one global search. It fills the gap left by the
 ## Installation
 
 ```bash
-uv tool install zmerge --with mkdocstrings-python  # mkdocstrings-python only if you render API docs
+uv tool install zmerge --with mkdocstrings-python  # add the extensions and plugins your projects use
 ```
 
 `zm` is a short alias of `zmerge`, e.g. `zm serve`.
 
 ## Quick start
 
-Include projects in the `nav` of an umbrella project's `zensical.toml`, as with the mkdocs-monorepo-plugin:
+Create an umbrella project, the Zensical project that hosts the merged site, and include projects in its `nav`:
 
 ```toml
 [project]
@@ -53,16 +53,16 @@ zmerge build --strict
 zmerge serve
 ```
 
-zmerge generates `.zmerge/` and `.zmerge.toml` next to the umbrella `zensical.toml`. Don't edit or commit them:
+zmerge generates `.zmerge/` and `.zmerge.toml` next to the umbrella configuration. Keep `.zmerge.toml` out of git:
 
 ```bash
-printf '.zmerge/\n.zmerge.toml\n' >> .gitignore
+echo .zmerge.toml >> .gitignore
 ```
 
 Read the [documentation](https://karelze.github.io/zmerge/) for the configuration, links between projects and
 [limitations](https://karelze.github.io/zmerge/limitations/). The docs are built with zmerge themselves: their
 [example](https://karelze.github.io/zmerge/example/lev/) merges lev and Typer from GitHub, see
-[`zensical.toml`](zensical.toml).
+[`zensical.toml`](https://github.com/KarelZe/zmerge/blob/main/zensical.toml).
 
 ## Development
 
@@ -74,5 +74,4 @@ uv run zmerge serve
 ```
 
 > [!WARNING]
-> zmerge is not affiliated with the Zensical project. It is purely meant as a temporary solution until Zensical ships
-> official support for merging projects, tracked in [zensical/backlog#22](https://github.com/zensical/backlog/issues/22).
+> zmerge is not affiliated with the Zensical project.

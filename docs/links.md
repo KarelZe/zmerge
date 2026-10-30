@@ -11,8 +11,8 @@ Link to another project with the absolute URL of its published site:
 Start with the [simplest example](https://typer.tiangolo.com/tutorial/first-steps/#the-simplest-example).
 ```
 
-The link works when the project is built on its own. When merging, zmerge turns every link into the `site_url` of the
-umbrella project or an included project into a relative link to the merged page:
+The link works when the project is built on its own. When merging, zmerge rewrites links that point into the
+`site_url` of the umbrella project or an included project into relative links to the merged page:
 
 ```md
 Start with the [simplest example](../typer/tutorial/first-steps.md#the-simplest-example).
@@ -24,8 +24,7 @@ page unchanged and warns.
 
 !!! tip
 
-    Set `site_url` in every project. zmerge leaves links to other sites under the umbrella's `site_url` unchanged,
-    without a warning.
+    Set `site_url` in every project; links to a project without one aren't rewritten.
 
 ## Links out of a project's docs
 
@@ -46,7 +45,8 @@ warns.
 ## Links from the umbrella project
 
 Link from the umbrella project's pages to project pages with their merged path, e.g. `[lev](lev/index.md)`, or with
-absolute URLs as above.
+absolute URLs as above. Relative links out of the umbrella's `docs_dir` aren't rewritten yet, see
+[limitations](limitations.md).
 
 ## What is rewritten
 

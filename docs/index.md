@@ -7,8 +7,7 @@ links, a single navigation and one global search. It fills the gap left by the
 
 !!! warning
 
-    zmerge is not affiliated with the Zensical project. It is purely meant as a temporary solution until Zensical ships
-    official support for merging projects, tracked in [zensical/backlog#22](https://github.com/zensical/backlog/issues/22).
+    zmerge is not affiliated with the Zensical project.
 
 ## Installation
 
@@ -16,13 +15,13 @@ links, a single navigation and one global search. It fills the gap left by the
 uv tool install zmerge
 ```
 
-To render API docs with [mkdocstrings](https://mkdocstrings.github.io/), add `--with mkdocstrings-python`.
-
-`zm` is a short alias of `zmerge`, e.g. `zm serve`.
+Add the markdown extensions and plugins your projects use with `--with`, e.g. `--with mkdocstrings-python` to render
+API docs with [mkdocstrings](https://mkdocstrings.github.io/).
 
 ## Quick start
 
-Create an umbrella project with a regular `zensical.toml` and include other projects in its `nav`:
+Create an umbrella project, a regular Zensical project that hosts the merged site, and include other projects in its
+`nav`:
 
 ```toml
 [project]
@@ -46,10 +45,10 @@ zmerge build --strict
 zmerge serve
 ```
 
-Keep the [generated files](#generated-files) out of git:
+Keep the [generated](#generated-files) `.zmerge.toml` out of git; `.zmerge/` ignores itself:
 
 ```bash
-printf '.zmerge/\n.zmerge.toml\n' >> .gitignore
+echo .zmerge.toml >> .gitignore
 ```
 
 !!! example
@@ -61,18 +60,16 @@ printf '.zmerge/\n.zmerge.toml\n' >> .gitignore
 
 ## How it works
 
-1. zmerge reads the umbrella `zensical.toml` and every included project, from local paths or git repositories.
+1. zmerge reads the umbrella configuration and every included project, from local paths or git repositories.
 2. It assembles one regular Zensical project from the docs and configurations of all projects.
 3. It rewrites what would break in the merged site: links between projects, links out of a project's docs, and
    per-project mkdocstrings and snippets settings.
 4. It builds the merged project once with `zensical build`. So there is one search index, and Zensical validates every
    link across projects.
 
-Re-assembling is incremental and takes a few milliseconds.
-
 ### Generated files
 
-zmerge writes the merged project next to the umbrella `zensical.toml`:
+zmerge writes the merged project next to the umbrella configuration:
 
 - `.zmerge.toml`: the merged Zensical configuration.
 - `.zmerge/docs/`: the docs of all projects below their prefixes, hardlinked to the originals where possible.
@@ -80,11 +77,3 @@ zmerge writes the merged project next to the umbrella `zensical.toml`:
 
 These files are internal to zmerge. Inspect them to debug a build, but don't edit or commit them: zmerge overwrites
 them on every run, and editing a hardlinked file in `.zmerge/docs/` changes the original.
-
-## Next steps
-
-- [Configuration](configuration.md): includes, prefixes, git sources and merged settings.
-- [Links](links.md): linking between projects.
-- [Command line](cli.md): commands and options.
-- [Migrating from mkdocs-monorepo-plugin](migrating.md).
-- [Limitations](limitations.md): what's not supported yet.
