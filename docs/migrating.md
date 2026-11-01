@@ -27,3 +27,13 @@ nav:
 | Files at the same path silently overwrite each other. | Collisions are errors. |
 | Includes are local files. | Includes can be git repositories. |
 | Per-project edit links. | Not supported yet, see [#9](https://github.com/KarelZe/zmerge/issues/9). |
+
+## Which one fits
+
+mkdocs-monorepo-plugin uses the root configuration for every page; projects only contribute pages and nav. That is
+simple and predictable, and it is enough if all projects share one configuration, as in a monorepo with one owner.
+
+zmerge targets projects with their own configurations, often in separate repositories, that should render merged as
+they do on their own. It merges their markdown extensions and plugins and writes per-project mkdocstrings options into
+their `:::` directives. In exchange, more of the configuration is merged, and settings that apply to the whole site,
+such as markdown extensions, can't differ per project (see [limitations](limitations.md)).
