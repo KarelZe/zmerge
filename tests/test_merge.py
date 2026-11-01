@@ -250,6 +250,73 @@ def test_extra_assets_are_prefixed_and_deduplicated(two_projects: Callable[..., 
     ]
 
 
+MATHJAX = "https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"
+KATEX = "https://unpkg.com/katex@0.16.9/dist/katex.min.js"
+
+
+def test_extra_assets_without_conflicts_do_not_warn(two_projects: Callable[..., Site]) -> None:
+    site = two_projects(
+        {},
+        {"extra_javascript": ["javascripts/mathjax.js", MATHJAX]},
+        {"extra_javascript": ["javascripts/mathjax.js", {"path": MATHJAX, "async": True}]},
+    )
+
+    _, warnings = unpack(merge_config(site))
+
+    assert warnings == []
+
+
+def test_conflicting_math_renderers_warn(two_projects: Callable[..., Site]) -> None:
+    site = two_projects(
+        {},
+        {"extra_javascript": ["javascripts/mathjax.js", MATHJAX]},
+        {
+            "extra_javascript": ["javascripts/katex.js", KATEX],
+            "extra_css": ["https://unpkg.com/katex@0.16.9/dist/katex.min.css"],
+        },
+    )
+
+    _, warnings = unpack(merge_config(site))
+
+    assert len(warnings) == 1
+    assert warnings[0].startswith("conflicting math renderers: MathJax in ")
+    assert "lev" in warnings[0]
+    assert "; KaTeX in " in warnings[0]
+    assert "dame" in warnings[0]
+
+
+@pytest.mark.parametrize(
+    ("lev", "dame", "versions"),
+    [
+        (MATHJAX, "https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js", ("3 (", "3.2.2 (")),
+        (KATEX, "https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.js", ("0.16.9 (", "0.16.8 (")),
+        (KATEX, "https://example.org/katex.min.js", ("0.16.9 (", "unversioned (")),
+    ],
+)
+def test_library_versions_warn(
+    two_projects: Callable[..., Site], lev: str, dame: str, versions: tuple[str, str]
+) -> None:
+    site = two_projects({}, {"extra_javascript": [lev]}, {"extra_javascript": [dame]})
+
+    _, warnings = unpack(merge_config(site))
+
+    assert len(warnings) == 1
+    assert "is loaded in several versions" in warnings[0]
+    assert all(version in warnings[0] for version in versions)
+
+
+def test_library_from_several_urls_warns(two_projects: Callable[..., Site]) -> None:
+    jsdelivr = "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+    site = two_projects({}, {"extra_javascript": [KATEX]}, {"extra_javascript": [jsdelivr]})
+
+    _, warnings = unpack(merge_config(site))
+
+    assert len(warnings) == 1
+    assert warnings[0].startswith("KaTeX 'katex.min.js' is loaded from several URLs: ")
+    assert KATEX in warnings[0]
+    assert jsdelivr in warnings[0]
+
+
 def test_patterns_are_prefixed(two_projects: Callable[..., Site]) -> None:
     site = two_projects({"exclude_docs": "drafts/\n"}, {"exclude_docs": "*.tmp\n", "not_in_nav": "/hidden.md"})
 
