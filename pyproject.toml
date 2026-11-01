@@ -45,12 +45,13 @@ zm = "zmerge.cli:main"
 
 [dependency-groups]
 test = ["mkdocstrings-python", "pytest", "pytest-cov"]
-# Building the docs merges lev and Typer, whose API docs and code includes need these.
+# Building the docs merges lev and Typer, whose API docs and code includes need these. mike deploys the versions.
 docs = [
   "griffe-typingdoc",
   "lev-rs",
   "markdown-include-variants",
   "mdx-include",
+  "mike",
   "mkdocstrings-python",
   "zensical",
 ]
@@ -84,6 +85,10 @@ deprecated = "error"
 
 [tool.uv]
 exclude-newer = "7 days"
+
+[tool.uv.sources]
+# Zensical's fork of mike deploys the versioned docs. It isn't published on PyPI.
+mike = { git = "https://github.com/squidfunk/mike.git", rev = "2d4ad799442f4592db8ad53b179bfb33db8c69ac" }
 
 [tool.ruff]
 

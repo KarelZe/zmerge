@@ -16,7 +16,10 @@ These features aren't supported yet; the
 - **Links in raw HTML and in snippets** aren't rewritten ([#14](https://github.com/KarelZe/zmerge/issues/14)).
 - **Relative links out of the umbrella's docs**, e.g. to `../LICENSE`, aren't rewritten and break
   ([#66](https://github.com/KarelZe/zmerge/issues/66)).
-- **Versioned docs** with mike ([#15](https://github.com/KarelZe/zmerge/issues/15)).
+- **Versioned docs** with mike work only for the merged site as a whole: run `zmerge build`, then
+  `mike deploy --config-file .zmerge.toml <version>`, like the docs you're reading. Pin the projects to the matching
+  refs, e.g. `git+https://github.com/me/lev.git@v1.0`. The `mike` plugin options of the projects are merged like any
+  other plugin's, and there is no version selector per project ([#15](https://github.com/KarelZe/zmerge/issues/15)).
 - **`zmerge serve`** doesn't watch mkdocstrings sources and snippet files outside the docs
   ([#16](https://github.com/KarelZe/zmerge/issues/16)).
 - **mkdocstrings handlers other than Python** can't restore option defaults per project

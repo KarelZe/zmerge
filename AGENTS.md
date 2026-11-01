@@ -18,6 +18,9 @@ Speed matters: prefer hardlinks over copies and only rewrite files that need cha
 ## Documentation
 - Serve locally: `uv run zmerge serve`, then access http://localhost:8000. The docs merge lev and Typer from GitHub
   (Example section), so this needs network access; `--no-fetch` reuses the fetched repositories.
+- The docs are versioned with mike (`.github/workflows/docs.yml`): CI deploys `dev` on pushes to main and
+  `<major>.<minor>` with the `latest` alias on releases, via `mike deploy --config-file .zmerge.toml` after
+  `zmerge build`.
 
 ## Code Style
 - `uv run ruff format .` and `uv run ruff check . --fix`
