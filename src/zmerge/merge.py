@@ -30,6 +30,10 @@ if TYPE_CHECKING:
 _URL = re.compile(r"^(?:[a-zA-Z][a-zA-Z0-9+.-]*:|//)")
 _PATTERN_KEYS = ("exclude_docs", "draft_docs", "not_in_nav")
 _ASSET_KEYS = ("extra_css", "extra_javascript")
+# Libraries a site must load only once, by the job they do. Assets are recognized by name and, if remote, versioned
+# like `mathjax@3`, `katex@0.16.9` (unpkg, jsdelivr) or `KaTeX/0.16.9` (cdnjs).
+_LIBRARIES = {"mathjax": ("MathJax", "math renderer"), "katex": ("KaTeX", "math renderer")}
+_LIBRARY = re.compile(r"(mathjax|katex)(?:[@/-]v?(\d+(?:\.\d+)*))?", re.IGNORECASE)
 # Python Markdown extension namespaces Zensical lets you write as nested tables, see `_convert_markdown_extensions`.
 _NAMESPACES = {"pymdownx": "blocks", "zensical": "extensions"}
 SNIPPETS = "pymdownx.snippets"
@@ -85,6 +89,7 @@ def merge_config(site: Site) -> MergedConfig:
         assets = _merge_assets(site, projects, key)
         if assets:
             config[key] = assets
+    _check_libraries(site, projects, warnings)
 
     for key in _PATTERN_KEYS:
         patterns = [config[key].rstrip("\n")] if config.get(key) else []
@@ -403,6 +408,67 @@ def _merge_assets(site: Site, projects: list[Project], key: str) -> list[Any]:
                 entry = path
             assets.append(entry)
     return assets
+
+
+def _check_libraries(site: Site, projects: list[Project], warnings: list[str]) -> None:
+    """Warn about libraries in ``extra_css`` and ``extra_javascript`` that conflict once loaded on every page.
+
+    Assets are only deduplicated by their exact path. So projects using different math renderers, or the same one in
+    different versions or from different CDNs, load all of them.
+    """
+    users: dict[str, list[Path]] = {}  # library -> configuration files using it
+    urls: dict[str, dict[str, list[Path]]] = {}  # library -> remote URL -> configuration files loading it
+    sources = [(site.config_file, site.config), *((p.config_file, p.config) for p in projects)]
+    for config_file, config in sources:
+        for key in _ASSET_KEYS:
+            for asset in config.get(key, []):
+                path = asset["path"] if isinstance(asset, dict) else asset
+                if not isinstance(path, str) or not (match := _LIBRARY.search(path)):
+                    continue
+                library = _LIBRARIES[match[1].lower()][0]
+                _add(users.setdefault(library, []), config_file)
+                if _URL.match(path):
+                    _add(urls.setdefault(library, {}).setdefault(path, []), config_file)
+
+    groups: dict[str, list[str]] = {}
+    for library, group in _LIBRARIES.values():
+        if library in users and library not in groups.setdefault(group, []):
+            groups[group].append(library)
+    for group, libraries in groups.items():
+        if len(libraries) > 1:
+            used = "; ".join(f"{library} in {_join(users[library])}" for library in libraries)
+            warnings.append(
+                f"conflicting {group}s: {used}; all are loaded on every page, use the same {group} in all projects"
+            )
+
+    for library, loaded in urls.items():
+        versions: dict[str, list[Path]] = {}
+        names: dict[str, list[str]] = {}
+        for url, files in loaded.items():
+            match = _LIBRARY.search(url)
+            version = match[2] if match and match[2] else "unversioned"
+            for file in files:
+                _add(versions.setdefault(version, []), file)
+            names.setdefault(PurePosixPath(url.split("?", 1)[0].split("#", 1)[0]).name, []).append(url)
+        if len(versions) > 1:
+            listed = ", ".join(f"{version} ({_join(files)})" for version, files in versions.items())
+            warnings.append(f"{library} is loaded in several versions: {listed}; use the same version in all projects")
+            continue
+        for name, duplicates in names.items():
+            if len(duplicates) > 1:
+                listed = ", ".join(f"{url} ({_join(loaded[url])})" for url in duplicates)
+                warnings.append(
+                    f"{library} {name!r} is loaded from several URLs: {listed}; use the same URL in all projects"
+                )
+
+
+def _add(items: list[Any], item: object) -> None:
+    if item not in items:
+        items.append(item)
+
+
+def _join(files: list[Path]) -> str:
+    return ", ".join(str(file) for file in files)
 
 
 def _prefix_patterns(patterns: str, prefix: str) -> str:
