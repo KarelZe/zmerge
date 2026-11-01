@@ -143,50 +143,37 @@ def test_mkdocstrings_options_per_project(two_projects: Callable[..., Site]) -> 
 
     merged = merge_config(site)
 
-    assert merged.config["plugins"]["mkdocstrings"]["handlers"]["python"]["options"] == {
-        "show_source": False,
-        "x": 1,
-        "heading_level": 3,
-    }
-    # lev doesn't set `heading_level`, so it gets mkdocstrings-python's default back.
+    # The projects share no option, so each project sets its own and keeps the handler's defaults for the rest.
+    assert "options" not in merged.config["plugins"]["mkdocstrings"]["handlers"]["python"]
     assert merged.directive_options == {
-        "lev": {"python": {"heading_level": 2}},
-        "dame": {"python": {"show_source": True}},
-    }
-    # The default of the unknown option `x` can't be restored for dame.
-    (warning,) = merged.warnings
-    assert "cannot determine the default of mkdocstrings option `handlers.python.options.x`" in warning
-
-
-def test_mkdocstrings_structured_defaults(two_projects: Callable[..., Site]) -> None:
-    options = {"filters": ["!^_"], "summary": True}
-    site = two_projects(
-        {},
-        {"plugins": {"mkdocstrings": {"handlers": {"python": {"options": options}}}}},
-        {"plugins": {"mkdocstrings": {}}},
-    )
-
-    merged = merge_config(site)
-
-    # dame gets mkdocstrings-python's defaults back in the form they take in the configuration.
-    assert merged.directive_options == {
-        "dame": {
-            "python": {
-                "filters": ["!^_[^_]"],
-                "summary": {
-                    "attributes": False,
-                    "functions": False,
-                    "classes": False,
-                    "modules": False,
-                    "type_aliases": False,
-                },
-            }
-        }
+        "lev": {"python": {"show_source": False, "x": 1}},
+        "dame": {"python": {"show_source": True, "heading_level": 3}},
     }
     assert merged.warnings == []
 
 
-def test_mkdocstrings_unknown_handler_defaults(two_projects: Callable[..., Site]) -> None:
+def test_mkdocstrings_common_options_stay_global(two_projects: Callable[..., Site]) -> None:
+    site = two_projects(
+        {"plugins": {"mkdocstrings": {"handlers": {"python": {"options": {"heading_level": 2}}}}}},
+        {
+            "plugins": {
+                "mkdocstrings": {"handlers": {"python": {"options": {"show_source": False, "heading_level": 3}}}}
+            }
+        },
+        {"plugins": {"mkdocstrings": {"handlers": {"python": {"options": {"show_source": False, "summary": True}}}}}},
+    )
+
+    merged = merge_config(site)
+
+    # Options of the umbrella project apply to all projects that don't set them differently.
+    assert merged.config["plugins"]["mkdocstrings"]["handlers"]["python"]["options"] == {
+        "show_source": False,
+        "heading_level": 2,
+    }
+    assert merged.directive_options == {"lev": {"python": {"heading_level": 3}}, "dame": {"python": {"summary": True}}}
+
+
+def test_mkdocstrings_project_without_options(two_projects: Callable[..., Site]) -> None:
     site = two_projects(
         {},
         {"plugins": {"mkdocstrings": {"handlers": {"rust": {"options": {"a": 1}}}}}},
@@ -195,8 +182,10 @@ def test_mkdocstrings_unknown_handler_defaults(two_projects: Callable[..., Site]
 
     merged = merge_config(site)
 
-    assert merged.directive_options == {}
-    assert ["cannot determine the default" in w for w in merged.warnings] == [True]
+    # dame keeps the handler's defaults, which zmerge doesn't need to know.
+    assert "options" not in merged.config["plugins"]["mkdocstrings"]["handlers"]["rust"]
+    assert merged.directive_options == {"lev": {"rust": {"a": 1}}}
+    assert merged.warnings == []
 
 
 def test_snippet_base_paths_are_combined(two_projects: Callable[..., Site], tmp_path: Path) -> None:
@@ -356,13 +345,3 @@ def test_extension_options_are_merged_per_key(two_projects: Callable[..., Site])
 
     assert config["markdown_extensions"]["pymdownx.superfences"] == {"custom_fences": fences}
     assert warnings == []
-
-
-def test_handler_default_import_error() -> None:
-    import sys
-    import unittest.mock
-
-    from zmerge.merge import _MISSING, _handler_default
-
-    with unittest.mock.patch.dict(sys.modules, {"mkdocstrings_handlers.python": None}):
-        assert _handler_default("python", "some_key") == _MISSING
