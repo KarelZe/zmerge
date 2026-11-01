@@ -112,8 +112,15 @@ The umbrella project owns the settings of the site as a whole, like `site_name`,
 | `extra_css`, `extra_javascript` | Local paths get the project prefix; duplicates are removed. Warns if projects use different math renderers (MathJax, KaTeX) or different versions of one. |
 | `exclude_docs`, `draft_docs`, `not_in_nav` | Patterns are anchored at the project prefix. |
 
-Options are combined key by key. If the umbrella project and the projects set different values for the same option of an
-extension or plugin, the umbrella's value or else the first in nav order wins, and zmerge warns. `zmerge build --strict` aborts on zmerge's warnings, too.
+Options are combined key by key and apply to all pages, because Zensical can't set them per page:
+
+- Options the umbrella project sets override those of the projects.
+- Options all projects using an extension or plugin set alike apply as they are.
+- If projects set an option differently, the first in nav order wins. If only some projects set it, their value also
+  applies to the others. zmerge warns in both cases; set the option in the umbrella project to decide and silence the
+  warning.
+
+`zmerge build --strict` aborts on zmerge's warnings, too.
 
 !!! note "Define markdown extensions explicitly"
 
