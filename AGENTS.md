@@ -8,6 +8,10 @@ bridges the gap until Zensical ships an official solution (https://github.com/ze
 
 Speed matters: prefer hardlinks over copies and only rewrite files that need changes.
 
+Prefer generic mechanisms over knowledge of how a specific extension or plugin behaves, e.g. write the options a
+project sets into its pages and leave the rest to the tool, instead of hardcoding the tool's defaults. Every such piece
+of knowledge breaks when the tool changes upstream.
+
 ## Environment Setup
 - Python >= 3.11
 - Install: `uv sync`
