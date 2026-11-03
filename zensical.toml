@@ -64,10 +64,17 @@ link = "https://github.com/KarelZe/zmerge"
 [project.markdown_extensions.toc]
 permalink = true
 
+# Typer sets these options; setting them here applies them to all projects without a warning.
 [project.markdown_extensions.pymdownx.highlight]
 anchor_linenums = true
+linenums = false
+line_spans = "__span"
+linenums_style = "pymdownx-inline"
 
 [project.markdown_extensions.pymdownx.superfences]
+custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
 
 [project.markdown_extensions.pymdownx.inlinehilite]
 
