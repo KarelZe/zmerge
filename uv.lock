@@ -905,6 +905,7 @@ version = "0.4.1"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
+    { name = "deepmerge" },
     { name = "pathspec" },
     { name = "pyyaml" },
     { name = "tomli-w" },
@@ -942,6 +943,7 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.2" },
+    { name = "deepmerge", specifier = ">=2.0" },
     { name = "pathspec", specifier = ">=0.12" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "tomli-w", specifier = ">=1.2" },
