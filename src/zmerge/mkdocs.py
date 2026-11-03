@@ -2,7 +2,8 @@
 
 Zensical builds projects configured with an ``mkdocs.yml``. zmerge reads them with the same extensions to YAML:
 
-- ``INHERIT`` merges the configuration into a parent configuration.
+- ``INHERIT`` merges the configuration into a parent configuration with deepmerge, like Zensical: mappings are merged,
+  lists appended, other values replaced.
 - ``!ENV`` reads environment variables, e.g. ``!ENV [NAME, fallback]``.
 - Python tags like ``!!python/name:pymdownx.superfences.fence_code_format`` become the dotted names
   (``!!python/object/apply`` becomes ``{object = ..., kwds = ...}``), which Zensical resolves in a ``zensical.toml``.
@@ -19,6 +20,7 @@ import os
 from typing import TYPE_CHECKING, Any
 
 import yaml
+from deepmerge import always_merger
 from yaml.constructor import ConstructorError
 
 from zmerge.errors import ZmergeError
@@ -113,32 +115,8 @@ def _load(config_file: Path, *, ancestors: list[Path]) -> dict[str, Any]:
         parent_file = (config_file.parent / str(config.pop("INHERIT"))).resolve()
         if not parent_file.is_file():
             raise ZmergeError(f"{config_file}: inherited configuration {parent_file} doesn't exist")
-        config = deep_merge(_load(parent_file, ancestors=[*ancestors, config_file]), config)
+        config = always_merger.merge(_load(parent_file, ancestors=[*ancestors, config_file]), config)
     return config
-
-
-def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    """Merge ``override`` into ``base`` like ``INHERIT``: mappings are merged, lists appended, other values replaced.
-
-    Args:
-        base: The inherited configuration. Modified in place.
-        override: The configuration that inherits.
-
-    Returns:
-        The merged configuration.
-
-    Examples:
-        >>> deep_merge({"a": {"b": 1, "c": [1]}, "d": 1}, {"a": {"c": [2]}, "d": 2})
-        {'a': {'b': 1, 'c': [1, 2]}, 'd': 2}
-    """
-    for key, value in override.items():
-        if isinstance(base.get(key), dict) and isinstance(value, dict):
-            deep_merge(base[key], value)
-        elif isinstance(base.get(key), list) and isinstance(value, list):
-            base[key] += value
-        else:
-            base[key] = value
-    return base
 
 
 def _without_nulls(config: dict[str, Any]) -> dict[str, Any]:
