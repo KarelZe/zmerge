@@ -14,7 +14,6 @@ From the projects, zmerge takes what their pages need to render:
 from __future__ import annotations
 
 import copy
-import dataclasses
 import re
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -83,7 +82,7 @@ def merge_config(site: Site) -> MergedConfig:
         config["plugins"] = plugins
         if "mkdocstrings" in plugins:
             merged.default_handler = plugins["mkdocstrings"].get("default_handler", "python")
-            merged.directive_options = _directive_options(plugins["mkdocstrings"], projects, warnings)
+            merged.directive_options = _directive_options(plugins["mkdocstrings"], projects)
 
     for key in _ASSET_KEYS:
         assets = _merge_assets(site, projects, key)
@@ -297,9 +296,8 @@ def _merge_mkdocstrings(
         target = merged.setdefault("handlers", {}).setdefault(name, {})
         # Keep the order of the paths and drop duplicates.
         target["paths"] = list(dict.fromkeys([*target.get("paths", []), *handler.pop("paths", [])]))
-        # Differences are resolved per project, see `_directive_options`.
-        if handler_options := handler.pop("options", None):
-            target["options"] = handler_options | target.get("options", {})
+        # Options are resolved per project, see `_directive_options`.
+        handler.pop("options", None)
         for option in _merge_options(target, handler):
             warnings.append(
                 f"{project.config_file}: mkdocstrings `handlers.{name}.{option}` differs from the merged site; "
@@ -307,80 +305,44 @@ def _merge_mkdocstrings(
             )
 
 
-def _directive_options(
-    mkdocstrings: Mapping[str, Any], projects: list[Project], warnings: list[str]
-) -> dict[str, dict[str, dict[str, Any]]]:
-    """Compute the handler options each project needs on its directives to render as when built on its own."""
-    handlers = mkdocstrings.get("handlers", {})
-    result: dict[str, dict[str, dict[str, Any]]] = {}
+def _directive_options(mkdocstrings: dict[str, Any], projects: list[Project]) -> dict[str, dict[str, dict[str, Any]]]:
+    """Split handler options into site-wide options and options each project sets on its directives.
+
+    An option stays in the merged configuration only if the umbrella project sets it, or if every project using
+    mkdocstrings sets it to the same value. Every other option a project sets is written into its ``:::`` directives.
+    A project that doesn't set an option then gets the handler's own default, without zmerge having to know it.
+
+    Args:
+        mkdocstrings: The merged mkdocstrings configuration, whose handler ``options`` are those of the umbrella
+            project. Updated in place with the site-wide options.
+        projects: The projects.
+
+    Returns:
+        The options per project prefix and handler that differ from the site-wide options.
+    """
+    users: list[tuple[Project, Mapping[str, Any]]] = []
     for project in projects:
         plugins = _normalize_plugins(project.config.get("plugins", {}), config_file=project.config_file)
-        if "mkdocstrings" not in plugins:
-            continue
-        own_handlers = plugins["mkdocstrings"].get("handlers", {})
-        for name, handler in handlers.items():
-            merged_options = handler.get("options", {})
-            own = own_handlers.get(name, {}).get("options", {})
-            overrides = {key: value for key, value in own.items() if merged_options.get(key, _MISSING) != value}
-            for key in merged_options.keys() - own.keys():
-                default = _handler_default(name, key)
-                if default is _MISSING:
-                    warnings.append(
-                        f"{project.config_file}: cannot determine the default of mkdocstrings option "
-                        f"`handlers.{name}.options.{key}`; using {merged_options[key]!r}"
-                    )
-                else:
-                    overrides[key] = default
+        if "mkdocstrings" in plugins:
+            users.append((project, plugins["mkdocstrings"].get("handlers", {})))
+
+    result: dict[str, dict[str, dict[str, Any]]] = {}
+    for name, handler in mkdocstrings.get("handlers", {}).items():
+        own = [(project, handlers.get(name, {}).get("options", {})) for project, handlers in users]
+        first = own[0][1] if own else {}
+        common = {
+            key: value
+            for key, value in first.items()
+            if all(key in options and options[key] == value for _, options in own)
+        }
+        options = common | handler.get("options", {})
+        if options:
+            handler["options"] = options
+        for project, project_options in own:
+            overrides = {key: value for key, value in project_options.items() if options.get(key, _MISSING) != value}
             if overrides:
                 result.setdefault(project.prefix, {})[name] = overrides
     return result
-
-
-def _handler_default(handler: str, key: str) -> object:
-    """Return the default of a handler option, or ``_MISSING`` if it is unknown."""
-    if handler != "python":
-        return _MISSING
-    try:
-        from mkdocstrings_handlers.python import PythonOptions
-    except ImportError:
-        return _MISSING
-    names = {f.name for f in dataclasses.fields(PythonOptions)}
-    value = _config_value(getattr(PythonOptions(), key)) if key in names else _MISSING
-    return value if _is_plain(value) else _MISSING
-
-
-def _config_value(value: object) -> object:
-    """Turn a parsed handler option back into the form it takes in the configuration.
-
-    Args:
-        value: The parsed option, e.g. a dataclass or compiled filters.
-
-    Returns:
-        The option as it is written in the configuration.
-
-    Examples:
-        >>> import re
-        >>> _config_value([(re.compile("^_[^_]"), True), (re.compile("^__init__$"), False)])
-        ['!^_[^_]', '^__init__$']
-    """
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return {f.name: _config_value(getattr(value, f.name)) for f in dataclasses.fields(value)}
-    if isinstance(value, tuple) and len(value) == 2 and isinstance(value[0], re.Pattern):  # a parsed filter
-        pattern, exclude = value
-        return f"!{pattern.pattern}" if exclude else pattern.pattern
-    if isinstance(value, list | tuple):
-        return [_config_value(v) for v in value]
-    return value
-
-
-def _is_plain(value: object) -> bool:
-    if value is None or isinstance(value, str | int | float | bool):
-        return True
-    if isinstance(value, list | tuple):
-        return all(_is_plain(v) for v in value)
-    if isinstance(value, dict):
-        return all(isinstance(k, str) and _is_plain(v) for k, v in value.items())
-    return False
 
 
 def _rebase(path: Path, root: Path) -> str:

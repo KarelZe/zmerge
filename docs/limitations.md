@@ -19,5 +19,3 @@ These features aren't supported yet; the
 - **Versioned docs** with mike ([#15](https://github.com/KarelZe/zmerge/issues/15)).
 - **`zmerge serve`** doesn't watch mkdocstrings sources and snippet files outside the docs
   ([#16](https://github.com/KarelZe/zmerge/issues/16)).
-- **mkdocstrings handlers other than Python** can't restore option defaults per project
-  ([#17](https://github.com/KarelZe/zmerge/issues/17)).

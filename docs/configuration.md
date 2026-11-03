@@ -106,7 +106,7 @@ The umbrella project owns the settings of the site as a whole, like `site_name`,
 | --- | --- |
 | `markdown_extensions` | Combined. The umbrella's extensions come first, followed by those only projects use. |
 | `plugins` | Combined, e.g. `search`, `tags` or `mkdocstrings`. |
-| `mkdocstrings` handlers | `paths` of all projects are combined and rebased onto the umbrella project. Handler `options` that differ from the merged ones are written into the project's `:::` directives, so each project renders as when built on its own. |
+| `mkdocstrings` handlers | `paths` of all projects are combined and rebased onto the umbrella project. Handler `options` stay site-wide if the umbrella project sets them or all projects set them alike. Other options are written into the project's `:::` directives, so each project renders as when built on its own, with the handler's defaults for options it doesn't set. Options of the umbrella project apply to all projects that don't set them differently. |
 | `pymdownx.snippets` | `base_path` of all projects are combined. Snippets resolve against the base paths of their project. |
 | `mdx_include`, `markdown_include_variants` | Included files resolve against their project, as when it is built on its own. |
 | `extra_css`, `extra_javascript` | Local paths get the project prefix; duplicates are removed. Warns if projects use different math renderers (MathJax, KaTeX) or different versions of one. |
