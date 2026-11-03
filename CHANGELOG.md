@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.0](https://github.com/KarelZe/zmerge/compare/0.4.1...0.5.0) (2026-11-03)
+
+
+### Features
+
+* let the umbrella override extension and plugin options ✨ ([#76](https://github.com/KarelZe/zmerge/issues/76)) ([88722ba](https://github.com/KarelZe/zmerge/commit/88722baeb26ce16f9954bd41898ff199c1cf234d))
+* warn about conflicting math renderers and library versions ✨ ([#72](https://github.com/KarelZe/zmerge/issues/72)) ([a1b4a08](https://github.com/KarelZe/zmerge/commit/a1b4a0807681303b61a10fb77e81186d0ec2626a)), closes [#13](https://github.com/KarelZe/zmerge/issues/13)
+
+
+### Bug Fixes
+
+* keep mkdocstrings handler defaults without knowing them 🐛 ([#74](https://github.com/KarelZe/zmerge/issues/74)) ([97041cd](https://github.com/KarelZe/zmerge/commit/97041cd867003de78600e97d34a978ef7b88c9f2))
+
+
+### Documentation
+
+* prefer generic mechanisms in agent guidelines 📝 ([#77](https://github.com/KarelZe/zmerge/issues/77)) ([e546d53](https://github.com/KarelZe/zmerge/commit/e546d53a69aacaa18ee697a969a7b24a1e182f5c))
+
 ## [0.4.1](https://github.com/KarelZe/zmerge/compare/0.4.0...0.4.1) (2026-10-30)
 
 
