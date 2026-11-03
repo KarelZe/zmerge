@@ -70,8 +70,42 @@ def test_markdown_extensions_are_combined(two_projects: Callable[..., Site]) -> 
         "pymdownx.arithmatex": {"generic": True},
         "pymdownx.blocks.admonition": {},
     }
+    # The umbrella project overrides `toc.permalink`, so dame's different value isn't a conflict.
+    assert warnings == []
+
+
+def test_markdown_extension_options_conflict(two_projects: Callable[..., Site]) -> None:
+    site = two_projects(
+        {"markdown_extensions": {"admonition": {}}},
+        {"markdown_extensions": {"toc": {"permalink": True}}},
+        {"markdown_extensions": {"toc": {"permalink": False}}},
+    )
+
+    config, warnings = unpack(merge_config(site))
+
+    assert config["markdown_extensions"]["toc"] == {"permalink": True}
     (warning,) = warnings
-    assert "options ['permalink'] of markdown extension 'toc' differ" in warning
+    assert "options ['permalink'] of markdown extension 'toc' differ from other projects" in warning
+
+
+@pytest.mark.parametrize("override", [False, True])
+def test_markdown_extension_options_set_by_some_projects(two_projects: Callable[..., Site], override: bool) -> None:
+    umbrella = {"toc": {"permalink": True}} if override else {"admonition": {}}
+    site = two_projects(
+        {"markdown_extensions": umbrella},
+        {"markdown_extensions": {"toc": {"permalink": True, "toc_depth": 3}}},
+        {"markdown_extensions": {"toc": {"toc_depth": 3}}},
+    )
+
+    config, warnings = unpack(merge_config(site))
+
+    # dame doesn't set `permalink`, yet the option applies to its pages, too.
+    assert config["markdown_extensions"]["toc"] == {"permalink": True, "toc_depth": 3}
+    if override:  # Setting the option in the umbrella project makes the choice explicit.
+        assert warnings == []
+    else:
+        (warning,) = warnings
+        assert f"{Path('dame') / 'zensical.toml'}: doesn't set options ['permalink']" in warning
 
 
 def test_warns_when_defaults_are_replaced(two_projects: Callable[..., Site]) -> None:
@@ -106,6 +140,20 @@ def test_plugins_are_combined(two_projects: Callable[..., Site]) -> None:
     assert config["plugins"] == {"search": {}, "tags": {"listings": True}}
     (warning,) = warnings
     assert "options ['listings'] of plugin 'tags' differ" in warning
+
+
+def test_umbrella_overrides_plugin_options(two_projects: Callable[..., Site]) -> None:
+    site = two_projects(
+        {"plugins": {"tags": {"listings": False}}},
+        {"plugins": {"tags": {"listings": True, "listings_toc": True}}},
+        {"plugins": ["search", "tags"]},
+    )
+
+    config, warnings = unpack(merge_config(site))
+
+    assert config["plugins"] == {"tags": {"listings": False, "listings_toc": True}, "search": {}}
+    (warning,) = warnings
+    assert f"{Path('dame') / 'zensical.toml'}: doesn't set options ['listings_toc'] of plugin 'tags'" in warning
 
 
 def test_mkdocstrings_paths_are_rebased(two_projects: Callable[..., Site], tmp_path: Path) -> None:

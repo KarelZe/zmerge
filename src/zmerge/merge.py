@@ -171,8 +171,8 @@ def _merge_extensions(site: Site, projects: list[Project], warnings: list[str]) 
     if not any("markdown_extensions" in config for _, config in sources):
         return None  # Everyone uses Zensical's defaults.
 
-    merged: dict[str, dict[str, Any]] = {}
-    origin: dict[str, Path] = {}
+    umbrella: dict[str, dict[str, Any]] = {}
+    entries: dict[str, list[tuple[Path, Mapping[str, Any]]]] = {}
     base_paths: list[str] = []
     for config_file, config in sources:
         if "markdown_extensions" not in config:
@@ -192,14 +192,15 @@ def _merge_extensions(site: Site, projects: list[Project], warnings: list[str]) 
             elif name == MDX_INCLUDE:
                 # Includes are resolved per project, see `zmerge.directives.rewrite_includes`.
                 options = {key: value for key, value in options.items() if key != "base_path"}
-            if name not in merged:
-                merged[name] = dict(options)
-                origin[name] = config_file
-            elif conflicts := _merge_options(merged[name], options):
-                warnings.append(
-                    f"{config_file}: options {conflicts} of markdown extension {name!r} differ from {origin[name]}; "
-                    f"using {_subset(merged[name], conflicts)!r}"
-                )
+            if config_file == site.config_file:
+                umbrella[name] = dict(options)
+            entries.setdefault(name, [])
+            if config_file != site.config_file:
+                entries[name].append((config_file, options))
+    merged = {
+        name: _combine_options("markdown extension", name, umbrella.get(name), project_options, warnings)
+        for name, project_options in entries.items()
+    }
     if SNIPPETS in merged:
         merged[SNIPPETS]["base_path"] = base_paths
     return merged
@@ -242,23 +243,75 @@ def _merge_plugins(site: Site, projects: list[Project], warnings: list[str]) -> 
     if "plugins" not in site.config and not any("plugins" in p.config for p in projects):
         return None
 
-    merged = _normalize_plugins(copy.deepcopy(site.config.get("plugins", {})), config_file=site.config_file)
-    if "mkdocstrings" in merged:
-        _rebase_mkdocstrings(merged["mkdocstrings"], root=site.root, umbrella_root=site.root)
+    umbrella = _normalize_plugins(copy.deepcopy(site.config.get("plugins", {})), config_file=site.config_file)
+    merged: dict[str, Any] = {}
+    entries: dict[str, list[tuple[Path, Mapping[str, Any]]]] = {name: [] for name in umbrella}
+    if "mkdocstrings" in umbrella:
+        _rebase_mkdocstrings(umbrella["mkdocstrings"], root=site.root, umbrella_root=site.root)
+        merged["mkdocstrings"] = umbrella["mkdocstrings"]
     for project in projects:
         plugins = _normalize_plugins(copy.deepcopy(project.config.get("plugins", {})), config_file=project.config_file)
         for name, options in plugins.items():
             if name == "mkdocstrings":
                 _rebase_mkdocstrings(options, root=project.root, umbrella_root=site.root)
                 _merge_mkdocstrings(merged.setdefault(name, {}), options, project, warnings)
-            elif name not in merged:
-                merged[name] = options
-            elif conflicts := _merge_options(merged[name], options):
-                warnings.append(
-                    f"{project.config_file}: options {conflicts} of plugin {name!r} differ from the merged site; "
-                    f"using {_subset(merged[name], conflicts)!r}"
-                )
-    return merged
+            entries.setdefault(name, []).append((project.config_file, options))
+    return {
+        name: merged[name]
+        if name == "mkdocstrings"
+        else _combine_options("plugin", name, umbrella.get(name), project_options, warnings)
+        for name, project_options in entries.items()
+    }
+
+
+def _combine_options(
+    kind: str,
+    name: str,
+    umbrella: Mapping[str, Any] | None,
+    entries: list[tuple[Path, Mapping[str, Any]]],
+    warnings: list[str],
+) -> dict[str, Any]:
+    """Combine the options of a markdown extension or plugin, which apply to all pages of the merged site.
+
+    Options of the umbrella project override those of the projects. Every other option a project sets applies to all
+    projects, so zmerge warns if projects set it differently or only some set it.
+
+    Args:
+        kind: What is combined, for warnings.
+        name: Name of the extension or plugin.
+        umbrella: Options of the umbrella project, or ``None`` if it doesn't use the extension or plugin.
+        entries: Configuration file and options of every project that uses the extension or plugin.
+        warnings: Receives the warnings.
+
+    Returns:
+        The combined options.
+    """
+    combined = dict(umbrella or {})
+    overridden = set(combined)
+    origin: dict[str, Path] = {}
+    for config_file, options in entries:
+        conflicts = []
+        for key, value in options.items():
+            if key in overridden:
+                continue
+            if key not in combined:
+                combined[key] = value
+                origin[key] = config_file
+            elif combined[key] != value:
+                conflicts.append(key)
+        if conflicts:
+            warnings.append(
+                f"{config_file}: options {conflicts} of {kind} {name!r} differ from other projects; "
+                f"using {_subset(combined, conflicts)!r}. Set them in the umbrella project to override them"
+            )
+    for config_file, options in entries:
+        if missing := [key for key in origin if key not in options]:
+            warnings.append(
+                f"{config_file}: doesn't set options {missing} of {kind} {name!r}, which other projects set and which "
+                f"apply to all pages; using {_subset(combined, missing)!r}. Set them in the umbrella project to "
+                "override them"
+            )
+    return combined
 
 
 def _merge_options(target: dict[str, Any], options: Mapping[str, Any]) -> list[str]:
