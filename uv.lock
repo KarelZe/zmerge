@@ -906,6 +906,7 @@ source = { editable = "." }
 dependencies = [
     { name = "click" },
     { name = "deepmerge" },
+    { name = "markdown" },
     { name = "pathspec" },
     { name = "pyyaml" },
     { name = "tomli-w" },
@@ -944,6 +945,7 @@ test = [
 requires-dist = [
     { name = "click", specifier = ">=8.2" },
     { name = "deepmerge", specifier = ">=2.0" },
+    { name = "markdown", specifier = ">=3.7" },
     { name = "pathspec", specifier = ">=0.12" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "tomli-w", specifier = ">=1.2" },

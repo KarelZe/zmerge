@@ -249,3 +249,8 @@ def test_build_validates_rewritten_links(make_project: Callable[..., Path]) -> N
 
 def test_overlapping_destinations_are_rewritten_once() -> None:
     assert rewrite_destinations('<img src="[x](a.png">', str.upper) == '<img src="[X](A.PNG">'
+
+
+def test_raw_html_is_found_like_python_markdown() -> None:
+    # A `>` in a quoted attribute doesn't end the tag.
+    assert rewrite_destinations('<a title="1 > 0" href="a.md">', str.upper) == '<a title="1 > 0" href="A.MD">'

@@ -23,7 +23,9 @@ import re
 from dataclasses import dataclass
 from itertools import chain
 from typing import TYPE_CHECKING
-from urllib.parse import SplitResult, urlsplit
+from urllib.parse import ParseResult, urlparse
+
+from markdown.inlinepatterns import HTML_RE
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
@@ -38,8 +40,9 @@ _INLINE_LINK = re.compile(r"\]\(\s*")
 _REFERENCE = re.compile(r"^ {0,3}\[[^\]\n]+\]:[ \t]*", re.MULTILINE)
 _ANGLE_DESTINATION = re.compile(r"<[^<>\n]*>")
 _EDIT_URI = re.compile(r"^(.*?)(?:edit|blob|tree)/([^/]+)/")
-# Raw HTML tags and the attributes in them that Zensical rewrites, see `zensical.extensions.links`.
-_HTML_TAG = re.compile(r"<[a-zA-Z][^<>]*>")
+# Raw HTML as Python-Markdown finds it, and the attributes in it that Zensical rewrites, see
+# `zensical.extensions.links`. Python-Markdown compiles its inline patterns with these flags.
+_HTML_TAG = re.compile(HTML_RE, re.DOTALL | re.UNICODE)
 _HTML_URL = re.compile(r"""(href|src|srcset)=(["'])([^"']+)\2""", re.IGNORECASE)
 _SRCSET_URL = re.compile(r"[\s,]*([^\s,]\S*)")
 _SRCSET_DESCRIPTORS = re.compile(r"[^,(]*(?:\([^)]*\)[^,(]*)*,?")
@@ -212,7 +215,7 @@ def _published_sites(site: Site) -> list[_Site]:
     sites = []
     for prefix, config in [("", site.config), *((p.prefix, p.config) for p in site.projects)]:
         if site_url := config.get("site_url"):
-            parts = urlsplit(site_url)
+            parts = urlparse(site_url)
             sites.append(_Site(netloc=parts.netloc.lower(), path=parts.path.rstrip("/") + "/", prefix=prefix))
     return sorted(sites, key=lambda s: len(s.path), reverse=True)
 
@@ -227,19 +230,34 @@ def _rewrite(
     warnings: list[str],
 ) -> str:
     try:
-        url = urlsplit(destination)
+        url = urlparse(destination)
     except ValueError:
         return destination
     if url.scheme in ("http", "https"):
         return _rewrite_absolute(url, page=page, sites=sites, files=files, warnings=warnings) or destination
-    # Like Zensical, leave other schemes, absolute paths and anchors within the page alone.
-    if url.scheme or url.netloc or url.path.startswith("/") or not url.path or project is None:
+    if project is None or not _is_relative(url):
         return destination
     return _rewrite_escaping(url, page=page, project=project, warnings=warnings) or destination
 
 
+def _is_relative(url: ParseResult) -> bool:
+    """Tell whether Zensical resolves a URL relative to the page, like ``zensical.extensions.links._is_relative``.
+
+    Returns:
+        Whether the URL is relative to the page.
+
+    Examples:
+        >>> [_is_relative(urlparse(u)) for u in ("../a.md#b", "?q", "#b", "/a.md", "//host/a", "mailto:me")]
+        [True, True, False, False, False, False]
+    """
+    if url.scheme or url.netloc or url.path.startswith("/"):
+        return False
+    # A link to an anchor points within the page.
+    return bool(url.path) or not url.fragment
+
+
 def _rewrite_absolute(
-    url: SplitResult, *, page: str, sites: list[_Site], files: Mapping[str, Source], warnings: list[str]
+    url: ParseResult, *, page: str, sites: list[_Site], files: Mapping[str, Source], warnings: list[str]
 ) -> str | None:
     """Return the relative link to the merged page an absolute URL points to, or ``None`` to leave it unchanged."""
     netloc = url.netloc.lower()
@@ -286,7 +304,7 @@ def _candidates(path: str) -> list[str]:
     return [path]
 
 
-def _rewrite_escaping(url: SplitResult, *, page: str, project: Project, warnings: list[str]) -> str | None:
+def _rewrite_escaping(url: ParseResult, *, page: str, project: Project, warnings: list[str]) -> str | None:
     """Return the repository URL of a file a relative link out of the docs points to, or ``None`` to leave it."""
     page_dir = posixpath.dirname(page.removeprefix(project.prefix + "/"))
     relative = posixpath.normpath(posixpath.join(page_dir, url.path))
@@ -306,5 +324,5 @@ def _rewrite_escaping(url: SplitResult, *, page: str, project: Project, warnings
         return None
     kind = "tree" if target.is_dir() else "blob"
     repo_path = target.relative_to(project.root).as_posix()
-    repo_file = urlsplit(f"{repo_url.rstrip('/')}/{match.group(1)}{kind}/{match.group(2)}/{repo_path}")
+    repo_file = urlparse(f"{repo_url.rstrip('/')}/{match.group(1)}{kind}/{match.group(2)}/{repo_path}")
     return repo_file._replace(query=url.query, fragment=url.fragment).geturl()
