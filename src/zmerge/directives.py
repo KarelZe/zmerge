@@ -9,6 +9,8 @@
 - **Includes.** ``mdx_include`` (``{! file !}``) resolves files relative to its ``base_path`` and
   ``markdown_include_variants`` (``{* file *}``) relative to the working directory. Like snippets, includes of a
   project are resolved against the project and replaced by absolute paths.
+
+The files snippets and includes resolve to are returned, so ``zensical serve`` can watch them.
 """
 
 from __future__ import annotations
@@ -56,7 +58,7 @@ def rewrite_directives(
     pages: Mapping[str, str],
     rewritten: dict[str, str],
     merged: MergedConfig,
-) -> None:
+) -> set[Path]:
     """Rewrite the mkdocstrings directives and snippets of the project pages in place.
 
     Args:
@@ -65,10 +67,14 @@ def rewrite_directives(
         pages: The content of the pages to rewrite, keyed by their merged path.
         rewritten: New content of changed files, keyed by merged path. Updated in place.
         merged: The merged configuration.
+
+    Returns:
+        The files that snippets and includes of the project pages resolve to.
     """
     projects = {p.prefix: p for p in site.projects}
     snippet_paths = {prefix: _snippet_paths(project) for prefix, project in projects.items()}
     include_paths = {prefix: _include_paths(project) for prefix, project in projects.items()}
+    resolved: set[Path] = set()
     for path in pages:
         project = projects.get(files[path].owner)
         if project is None:
@@ -81,12 +87,13 @@ def rewrite_directives(
         text = rewritten.get(path, pages[path])
         new_text = text
         if base_paths is not None and "8<-" in new_text:
-            new_text = rewrite_snippets(new_text, base_paths)
-        new_text = rewrite_includes(new_text, mdx_base=mdx_base, variants_base=variants_base)
+            new_text = rewrite_snippets(new_text, base_paths, resolved=resolved)
+        new_text = rewrite_includes(new_text, mdx_base=mdx_base, variants_base=variants_base, resolved=resolved)
         if options and ":::" in new_text:
             new_text = inject_options(new_text, options, default_handler=merged.default_handler)
         if new_text != text:
             rewritten[path] = new_text
+    return resolved
 
 
 def _snippet_paths(project: Project) -> list[Path] | None:
@@ -109,13 +116,16 @@ def _include_paths(project: Project) -> tuple[Path | None, Path | None]:
     return mdx_base, project.root if INCLUDE_VARIANTS in normalized else None
 
 
-def rewrite_includes(text: str, *, mdx_base: Path | None, variants_base: Path | None) -> str:
+def rewrite_includes(
+    text: str, *, mdx_base: Path | None, variants_base: Path | None, resolved: set[Path] | None = None
+) -> str:
     r"""Replace the paths of ``{! file !}`` and ``{* file *}`` includes that exist below the base paths.
 
     Args:
         text: Markdown source.
         mdx_base: Base path of ``mdx_include``, or ``None`` if the project doesn't use it.
         variants_base: Base path of ``markdown_include_variants``, or ``None`` if the project doesn't use it.
+        resolved: Receives the absolute paths of the included files.
 
     Returns:
         The Markdown source with absolute include paths.
@@ -125,18 +135,20 @@ def rewrite_includes(text: str, *, mdx_base: Path | None, variants_base: Path | 
         >>> rewrite_includes("{* missing.py hl[1] *}\n", mdx_base=None, variants_base=Path("/nowhere"))
         '{* missing.py hl[1] *}\n'
     """
+    resolved = set() if resolved is None else resolved
     if variants_base is not None and "{*" in text:
-        text = _INCLUDE_VARIANT.sub(lambda m: _replace_path(m, variants_base), text)
+        text = _INCLUDE_VARIANT.sub(lambda m: _replace_path(m, variants_base, resolved), text)
     if mdx_base is not None and "{!" in text:
-        text = _MDX_INCLUDE.sub(lambda m: _replace_path(m, mdx_base), text)
+        text = _MDX_INCLUDE.sub(lambda m: _replace_path(m, mdx_base, resolved), text)
     return text
 
 
-def _replace_path(match: re.Match[str], base: Path) -> str:
+def _replace_path(match: re.Match[str], base: Path, resolved: set[Path]) -> str:
     path = match.group("path")
     candidate = (base / path).resolve()
     if "://" in path or not candidate.is_file():
         return match.group(0)
+    resolved.add(candidate)
     start, end = match.span("path")
     offset = match.start()
     return match.group(0)[: start - offset] + candidate.as_posix() + match.group(0)[end - offset :]
@@ -210,16 +222,18 @@ def _dedent(block: str, indent: str) -> str:
     return "\n".join(line[width:] for line in lines)
 
 
-def rewrite_snippets(text: str, base_paths: list[Path]) -> str:
+def rewrite_snippets(text: str, base_paths: list[Path], *, resolved: set[Path] | None = None) -> str:
     """Replace the paths of snippets that exist in ``base_paths`` with absolute paths.
 
     Args:
         text: Markdown source.
         base_paths: Absolute base paths of the project's snippets.
+        resolved: Receives the absolute paths of the snippet files.
 
     Returns:
         The Markdown source with absolute snippet paths.
     """
+    resolved = set() if resolved is None else resolved
     lines = text.splitlines(keepends=True)
     in_block = False
     for i, line in enumerate(lines):
@@ -229,17 +243,17 @@ def rewrite_snippets(text: str, base_paths: list[Path]) -> str:
                 in_block = not in_block
             else:
                 start, end = match.span("snippet")
-                lines[i] = line[:start] + _resolve(match.group("snippet"), base_paths) + line[end:]
+                lines[i] = line[:start] + _resolve(match.group("snippet"), base_paths, resolved) + line[end:]
             continue
         if in_block and line.strip() and not line.lstrip().startswith(";"):
             content = line.rstrip("\r\n")
             stripped = content.strip()
             start = content.index(stripped)
-            lines[i] = content[:start] + _resolve(stripped, base_paths) + line[len(content) :]
+            lines[i] = content[:start] + _resolve(stripped, base_paths, resolved) + line[len(content) :]
     return "".join(lines)
 
 
-def _resolve(snippet: str, base_paths: list[Path]) -> str:
+def _resolve(snippet: str, base_paths: list[Path], resolved: set[Path]) -> str:
     if "://" in snippet:
         return snippet
     match = _SNIPPET_FILE.match(snippet)
@@ -247,5 +261,6 @@ def _resolve(snippet: str, base_paths: list[Path]) -> str:
     for base in base_paths:
         candidate = (base / filename).resolve()
         if candidate.is_relative_to(base) and candidate.is_file():
+            resolved.add(candidate)
             return candidate.as_posix() + suffix
     return snippet

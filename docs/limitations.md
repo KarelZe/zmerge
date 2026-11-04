@@ -17,5 +17,3 @@ These features aren't supported yet; the
 - **Relative links out of the umbrella's docs**, e.g. to `../LICENSE`, aren't rewritten and break
   ([#66](https://github.com/KarelZe/zmerge/issues/66)).
 - **Versioned docs** with mike ([#15](https://github.com/KarelZe/zmerge/issues/15)).
-- **`zmerge serve`** doesn't watch mkdocstrings sources and snippet files outside the docs
-  ([#16](https://github.com/KarelZe/zmerge/issues/16)).

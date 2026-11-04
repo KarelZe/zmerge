@@ -111,6 +111,7 @@ The umbrella project owns the settings of the site as a whole, like `site_name`,
 | `mdx_include`, `markdown_include_variants` | Included files resolve against their project, as when it is built on its own. |
 | `extra_css`, `extra_javascript` | Local paths get the project prefix; duplicates are removed. Warns if projects use different math renderers (MathJax, KaTeX) or different versions of one. |
 | `exclude_docs`, `draft_docs`, `not_in_nav` | Patterns are anchored at the project prefix. |
+| `watch` | Combined and rebased onto the umbrella project, together with the directories of each project's mkdocstrings handler `paths` (except the project root) and the files its snippets and includes resolve to, so [`zmerge serve`](cli.md#zmerge-serve) rebuilds the site when they change. Paths containing the umbrella project are skipped with a warning. |
 
 Options are combined key by key and apply to all pages, because Zensical can't set them per page:
 

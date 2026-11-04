@@ -67,7 +67,8 @@ def test_rewrite_snippets(tmp_path: Path) -> None:
         "README.md\n"
     )
 
-    assert rewrite_snippets(text, [tmp_path / "docs", tmp_path]) == (
+    resolved: set[Path] = set()
+    assert rewrite_snippets(text, [tmp_path / "docs", tmp_path], resolved=resolved) == (
         f'--8<-- "{root}/README.md"\n'
         f"--8<-- '{docs}/part.md:intro'\n"
         f'    -8<- "{root}/README.md:1:3"\n'
@@ -81,6 +82,7 @@ def test_rewrite_snippets(tmp_path: Path) -> None:
         "--8<--\n"
         "README.md\n"
     )
+    assert resolved == {(tmp_path / "README.md").resolve(), (tmp_path / "docs" / "part.md").resolve()}
 
 
 def test_snippets_resolve_per_project(make_project: Callable[..., Path], tmp_path: Path) -> None:
@@ -145,12 +147,14 @@ def test_rewrite_includes(tmp_path: Path) -> None:
         "\\{!docs_src/a.py!} {!https://example.org/a.py!}\n"
     )
 
-    assert rewrite_includes(text, mdx_base=tmp_path, variants_base=tmp_path) == (
+    resolved: set[Path] = set()
+    assert rewrite_includes(text, mdx_base=tmp_path, variants_base=tmp_path, resolved=resolved) == (
         f"{{* {a} hl[1] *}}\n"
         "{* docs_src/missing.py *}\n"
         f"Inline {{!{a}!}} and {{!+> {a} [ln:1-2] | utf-8 !}}.\n"
         "\\{!docs_src/a.py!} {!https://example.org/a.py!}\n"
     )
+    assert resolved == {(tmp_path / "docs_src" / "a.py").resolve()}
     assert rewrite_includes(text, mdx_base=None, variants_base=None) == text
 
 
@@ -174,6 +178,12 @@ def test_includes_resolve_per_project(make_project: Callable[..., Path], tmp_pat
         )
     config = tomllib.loads(assembly.config_file.read_text(encoding="utf-8"))
     assert config["project"]["markdown_extensions"]["mdx_include"] == {}
+    # Zensical doesn't rebuild pages when included files change, unless they are watched.
+    assert config["project"]["watch"] == sorted(
+        (tmp_path / name / path).resolve().as_posix()
+        for name in ("lev", "dame")
+        for path in ("docs_src/a.py", "src/a.md")
+    )
     assert assembly.warnings == []
 
 
