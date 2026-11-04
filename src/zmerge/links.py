@@ -11,7 +11,9 @@ Two kinds of links are rewritten:
   the merged site, they would resolve to unrelated files, so they become links to the file in the project's
   repository, derived from ``repo_url`` and ``edit_uri``.
 
-Links in fenced code blocks and inline code are left untouched.
+Both are rewritten wherever Zensical resolves relative links: in inline links, images, reference definitions and the
+``href``, ``src`` and ``srcset`` attributes of raw HTML. Like Zensical, zmerge leaves autolinks and links in fenced
+code blocks and inline code untouched.
 """
 
 from __future__ import annotations
@@ -19,8 +21,11 @@ from __future__ import annotations
 import posixpath
 import re
 from dataclasses import dataclass
+from itertools import chain
 from typing import TYPE_CHECKING
-from urllib.parse import urlsplit
+from urllib.parse import ParseResult, urlparse
+
+from markdown.inlinepatterns import HTML_RE
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
@@ -28,12 +33,21 @@ if TYPE_CHECKING:
     from zmerge.assemble import Source
     from zmerge.config import Project, Site
 
-_SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 _FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 _CODE_SPAN = re.compile(r"(`+)(.+?)\1")
+_NOT_NEWLINE = re.compile(r"[^\r\n]")
 _INLINE_LINK = re.compile(r"\]\(\s*")
-_REFERENCE = re.compile(r"^ {0,3}\[[^\]]+\]:[ \t]*")
+_REFERENCE = re.compile(r"^ {0,3}\[[^\]\n]+\]:[ \t]*", re.MULTILINE)
+_ANGLE_DESTINATION = re.compile(r"<[^<>\n]*>")
 _EDIT_URI = re.compile(r"^(.*?)(?:edit|blob|tree)/([^/]+)/")
+# Raw HTML as Python-Markdown finds it, and the attributes in it that Zensical rewrites, see
+# `zensical.extensions.links`. Python-Markdown compiles its inline patterns with these flags.
+_HTML_TAG = re.compile(HTML_RE, re.DOTALL | re.UNICODE)
+_HTML_URL = re.compile(r"""(href|src|srcset)=(["'])([^"']+)\2""", re.IGNORECASE)
+_SRCSET_URL = re.compile(r"[\s,]*([^\s,]\S*)")
+_SRCSET_DESCRIPTORS = re.compile(r"[^,(]*(?:\([^)]*\)[^,(]*)*,?")
+# Pages without any of these have no links to rewrite.
+_MARKER = re.compile(r"\]\(|\]:|<[a-zA-Z]")
 
 
 @dataclass(frozen=True)
@@ -64,7 +78,7 @@ def rewrite_links(
     rewritten: dict[str, str] = {}
     warnings: list[str] = []
     for path, text in pages.items():
-        if "](" not in text and "]:" not in text:
+        if not _MARKER.search(text):
             continue
         project = projects.get(files[path].owner)
 
@@ -78,7 +92,10 @@ def rewrite_links(
 
 
 def rewrite_destinations(text: str, rewrite: Callable[[str], str]) -> str:
-    r"""Apply ``rewrite`` to the destination of every inline link, image and link reference definition.
+    r"""Apply ``rewrite`` to every link destination that Zensical resolves.
+
+    These are the destinations of inline links, images and link reference definitions, and the ``href``, ``src`` and
+    ``srcset`` attributes of raw HTML.
 
     Args:
         text: Markdown source.
@@ -88,19 +105,38 @@ def rewrite_destinations(text: str, rewrite: Callable[[str], str]) -> str:
         The Markdown source with rewritten destinations.
 
     Examples:
-        >>> text = "[a](a.md) ![b](<b c.png> 'title') `[c](c.md)`\n[d]: d.md\n```\n[e](e.md)\n```\n"
+        >>> text = "[a](a.md) ![b](<b c.png> 'title') `[c](c.md)`\n[d]: d.md <http://e>\n```\n[f](f.md)\n```\n"
         >>> print(rewrite_destinations(text, str.upper), end="")
         [a](A.MD) ![b](<B C.PNG> 'title') `[c](c.md)`
-        [d]: D.MD
+        [d]: D.MD <http://e>
         ```
-        [e](e.md)
+        [f](f.md)
         ```
+        >>> rewrite_destinations('<a href="a.md">a</a> <img\nSRCSET="b.png 2x, c.png">', str.upper)
+        '<a href="A.MD">a</a> <img\nSRCSET="B.PNG 2x, C.PNG">'
     """
-    lines = text.splitlines(keepends=True)
-    for i, line in outside_fences(lines):
-        if "](" in line or "]:" in line:
-            lines[i] = _rewrite_line(line, rewrite)
-    return "".join(lines)
+    masked = _mask_code(text)
+    edits: list[tuple[int, int, str]] = []
+    for match in chain(_REFERENCE.finditer(masked), _INLINE_LINK.finditer(masked)):
+        start, end = _destination(masked, match.end())
+        if masked.startswith("<", start):
+            start, end = start + 1, end - 1
+        if start < end:
+            edits.append((start, end, rewrite(text[start:end])))
+    for tag in _HTML_TAG.finditer(masked):
+        for attribute in _HTML_URL.finditer(masked, tag.start(), tag.end()):
+            start, end = attribute.span(3)
+            urls = _srcset_urls(text, start, end) if attribute.group(1).lower() == "srcset" else [(start, end)]
+            edits.extend((s, e, rewrite(text[s:e])) for s, e in urls)
+
+    parts: list[str] = []
+    position = 0
+    for start, end, replacement in sorted(edits):
+        if start < position:
+            continue  # Overlaps the previous destination.
+        parts += [text[position:start], replacement]
+        position = end
+    return "".join(parts) + text[position:]
 
 
 def outside_fences(lines: list[str]) -> Iterator[tuple[int, str]]:
@@ -125,30 +161,20 @@ def outside_fences(lines: list[str]) -> Iterator[tuple[int, str]]:
             yield i, line
 
 
-def _rewrite_line(line: str, rewrite: Callable[[str], str]) -> str:
-    # Blank out code spans, keeping offsets intact, so links inside them are not found.
-    masked = _CODE_SPAN.sub(lambda m: " " * len(m.group(0)), line)
-    spans: list[tuple[int, int]] = []
-    if match := _REFERENCE.match(masked):
-        spans.append(_destination(masked, match.end()))
-    spans.extend(_destination(masked, m.end()) for m in _INLINE_LINK.finditer(masked))
-    for start, end in sorted(spans, reverse=True):
-        if start == end:
-            continue
-        destination = line[start:end]
-        if destination.startswith("<") and destination.endswith(">"):
-            replacement = "<" + rewrite(destination[1:-1]) + ">"
-        else:
-            replacement = rewrite(destination)
-        line = line[:start] + replacement + line[end:]
-    return line
+def _mask_code(text: str) -> str:
+    """Blank out fenced code blocks and code spans, keeping offsets and line breaks, so links in them are not found."""
+    lines = text.splitlines(keepends=True)
+    masked = [_NOT_NEWLINE.sub(" ", line) for line in lines]
+    for i, line in outside_fences(lines):
+        masked[i] = _CODE_SPAN.sub(lambda m: " " * len(m.group(0)), line)
+    return "".join(masked)
 
 
 def _destination(text: str, start: int) -> tuple[int, int]:
     """Find the link destination starting at ``start``, see https://spec.commonmark.org/0.31.2/#link-destination."""
     if text.startswith("<", start):
-        end = text.find(">", start)
-        return (start, end + 1) if end != -1 else (start, start)
+        match = _ANGLE_DESTINATION.match(text, start)
+        return match.span() if match else (start, start)
     depth = 0
     end = start
     while end < len(text) and not text[end].isspace():
@@ -163,12 +189,33 @@ def _destination(text: str, start: int) -> tuple[int, int]:
     return start, end
 
 
+def _srcset_urls(text: str, start: int, end: int) -> Iterator[tuple[int, int]]:
+    """Find the URLs of the ``srcset`` in ``text[start:end]``, see https://html.spec.whatwg.org/#srcset-attributes.
+
+    Yields:
+        Start and end of every URL, without its descriptors.
+
+    Examples:
+        >>> value = "a.png, b.png 2x,c,d.png 100w"
+        >>> [value[s:e] for s, e in _srcset_urls(value, 0, len(value))]
+        ['a.png', 'b.png', 'c,d.png']
+    """
+    position = start
+    while match := _SRCSET_URL.match(text, position, end):
+        url_start, position = match.span(1)
+        url_end = url_start + len(match.group(1).rstrip(","))
+        yield url_start, url_end
+        # Unless the URL ends in a comma, descriptors follow up to the next comma.
+        if url_end == position and (descriptors := _SRCSET_DESCRIPTORS.match(text, position, end)):
+            position = descriptors.end()
+
+
 def _published_sites(site: Site) -> list[_Site]:
     """Map the ``site_url`` of the umbrella and every project to its prefix, longest URL first."""
     sites = []
     for prefix, config in [("", site.config), *((p.prefix, p.config) for p in site.projects)]:
         if site_url := config.get("site_url"):
-            parts = urlsplit(site_url)
+            parts = urlparse(site_url)
             sites.append(_Site(netloc=parts.netloc.lower(), path=parts.path.rstrip("/") + "/", prefix=prefix))
     return sorted(sites, key=lambda s: len(s.path), reverse=True)
 
@@ -182,23 +229,39 @@ def _rewrite(
     files: Mapping[str, Source],
     warnings: list[str],
 ) -> str:
-    if destination.startswith("#") or destination.startswith("/"):
+    try:
+        url = urlparse(destination)
+    except ValueError:
         return destination
-    if _SCHEME.match(destination):
-        if destination.startswith(("http://", "https://")):
-            return _rewrite_absolute(destination, page=page, sites=sites, files=files, warnings=warnings)
+    if url.scheme in ("http", "https"):
+        return _rewrite_absolute(url, page=page, sites=sites, files=files, warnings=warnings) or destination
+    if project is None or not _is_relative(url):
         return destination
-    if project is not None:
-        return _rewrite_escaping(destination, page=page, project=project, warnings=warnings)
-    return destination
+    return _rewrite_escaping(url, page=page, project=project, warnings=warnings) or destination
+
+
+def _is_relative(url: ParseResult) -> bool:
+    """Tell whether Zensical resolves a URL relative to the page, like ``zensical.extensions.links._is_relative``.
+
+    Returns:
+        Whether the URL is relative to the page.
+
+    Examples:
+        >>> [_is_relative(urlparse(u)) for u in ("../a.md#b", "?q", "#b", "/a.md", "//host/a", "mailto:me")]
+        [True, True, False, False, False, False]
+    """
+    if url.scheme or url.netloc or url.path.startswith("/"):
+        return False
+    # A link to an anchor points within the page.
+    return bool(url.path) or not url.fragment
 
 
 def _rewrite_absolute(
-    destination: str, *, page: str, sites: list[_Site], files: Mapping[str, Source], warnings: list[str]
-) -> str:
-    parts = urlsplit(destination)
-    netloc = parts.netloc.lower()
-    path = parts.path if parts.path.endswith("/") or "." in posixpath.basename(parts.path) else parts.path + "/"
+    url: ParseResult, *, page: str, sites: list[_Site], files: Mapping[str, Source], warnings: list[str]
+) -> str | None:
+    """Return the relative link to the merged page an absolute URL points to, or ``None`` to leave it unchanged."""
+    netloc = url.netloc.lower()
+    path = url.path if url.path.endswith("/") or "." in posixpath.basename(url.path) else url.path + "/"
     for published in sites:
         if netloc != published.netloc or not path.startswith(published.path):
             continue
@@ -208,11 +271,11 @@ def _rewrite_absolute(
         if target is None:
             # The umbrella's URL may host other sites, too, so only links into a project's site are suspicious.
             if published.prefix:
-                warnings.append(f"{page}: {destination} matches no merged page; leaving it unchanged")
-            return destination
+                warnings.append(f"{page}: {url.geturl()} matches no merged page; leaving it unchanged")
+            return None
         relative = posixpath.relpath(target, posixpath.dirname(page) or ".")
-        return relative + (f"#{parts.fragment}" if parts.fragment else "")
-    return destination
+        return url._replace(scheme="", netloc="", path=relative).geturl()
+    return None
 
 
 def _candidates(path: str) -> list[str]:
@@ -241,27 +304,25 @@ def _candidates(path: str) -> list[str]:
     return [path]
 
 
-def _rewrite_escaping(destination: str, *, page: str, project: Project, warnings: list[str]) -> str:
-    path, _, fragment = destination.partition("#")
-    if not path:
-        return destination
+def _rewrite_escaping(url: ParseResult, *, page: str, project: Project, warnings: list[str]) -> str | None:
+    """Return the repository URL of a file a relative link out of the docs points to, or ``None`` to leave it."""
     page_dir = posixpath.dirname(page.removeprefix(project.prefix + "/"))
-    relative = posixpath.normpath(posixpath.join(page_dir, path))
+    relative = posixpath.normpath(posixpath.join(page_dir, url.path))
     if not relative.startswith("../"):
-        return destination  # The link stays inside the project's docs.
+        return None  # The link stays inside the project's docs.
 
     target = (project.docs_dir / relative).resolve()
     if not target.exists() or not target.is_relative_to(project.root):
-        return destination  # Zensical reports broken links to pages.
+        return None  # Zensical reports broken links to pages.
     repo_url = project.config.get("repo_url")
     match = _EDIT_URI.match(project.config.get("edit_uri", ""))
     if not repo_url or not match:
         warnings.append(
-            f"{project.config_file}: {page} links to {destination} outside of the docs; set `repo_url` and "
+            f"{project.config_file}: {page} links to {url.geturl()} outside of the docs; set `repo_url` and "
             "`edit_uri` to link to the repository instead"
         )
-        return destination
+        return None
     kind = "tree" if target.is_dir() else "blob"
     repo_path = target.relative_to(project.root).as_posix()
-    url = f"{repo_url.rstrip('/')}/{match.group(1)}{kind}/{match.group(2)}/{repo_path}"
-    return url + (f"#{fragment}" if fragment else "")
+    repo_file = urlparse(f"{repo_url.rstrip('/')}/{match.group(1)}{kind}/{match.group(2)}/{repo_path}")
+    return repo_file._replace(query=url.query, fragment=url.fragment).geturl()

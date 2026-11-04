@@ -129,6 +129,38 @@ def test_link_syntax_variants(merge: Callable[..., Assembly]) -> None:
     assert "logo.png matches no merged page" in warning
 
 
+def test_autolinks_stay_unchanged(merge: Callable[..., Assembly]) -> None:
+    # Zensical doesn't resolve autolinks, and rewriting one would turn it into an inline link.
+    text = "See <https://example.org/dame-rs/design/#opening-book>.\n"
+
+    assembly = merge({"index.md": text})
+
+    assert staged(assembly, "lev/index.md") == text
+
+
+def test_raw_html(merge: Callable[..., Assembly], tmp_path: Path) -> None:
+    (tmp_path / "lev" / "LICENSE").parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "lev" / "LICENSE").write_text("", encoding="utf-8")
+    url = "https://example.org/dame-rs/"
+    text = (
+        f'<a HREF="{url}design/#opening-book" class="x"><img src=\'{url}img/app.png\'></a>\n'
+        f'<img\n  srcset="{url}img/app.png 2x, https://other.org/a.png 3x">\n'
+        f'<a href="../../LICENSE?plain=1">l</a> <a href="https://other.org/">o</a> `<a href="{url}">`\n'
+        f'<a href = "{url}">spaces</a>\n'
+    )
+
+    assembly = merge({"index.md": "# lev\n", "guide/page.md": text})
+
+    # Only the attributes that Zensical rewrites in raw HTML, which excludes spaces around `=`.
+    assert staged(assembly, "lev/guide/page.md") == (
+        '<a HREF="../../dame/design.md#opening-book" class="x"><img src=\'../../dame/img/app.png\'></a>\n'
+        '<img\n  srcset="../../dame/img/app.png 2x, https://other.org/a.png 3x">\n'
+        '<a href="https://github.com/me/lev/blob/main/LICENSE?plain=1">l</a> <a href="https://other.org/">o</a> '
+        f'`<a href="{url}">`\n'
+        f'<a href = "{url}">spaces</a>\n'
+    )
+
+
 def test_links_leaving_the_docs_point_to_the_repository(merge: Callable[..., Assembly], tmp_path: Path) -> None:
     (tmp_path / "lev" / "src").mkdir(parents=True)
     (tmp_path / "lev" / "src" / "lib.rs").write_text("", encoding="utf-8")
@@ -192,6 +224,14 @@ def test_unterminated_angle_destination_is_ignored() -> None:
     assert rewrite_destinations("[a](<b.md\n", str.upper) == "[a](<b.md\n"
 
 
+def test_invalid_url_stays_unchanged(merge: Callable[..., Assembly]) -> None:
+    text = "[a](https://[example.org/dame-rs/)\n"
+
+    assembly = merge({"index.md": text})
+
+    assert staged(assembly, "lev/index.md") == text
+
+
 def test_build_validates_rewritten_links(make_project: Callable[..., Path]) -> None:
     make_project("lev", LEV, files={"index.md": "# lev\n\n[book](https://example.org/dame-rs/design/#opening-book)\n"})
     make_project("dame-rs", DAME, files={"index.md": "# dame\n", "design.md": "# Design\n\n## Opening book\n"})
@@ -200,3 +240,17 @@ def test_build_validates_rewritten_links(make_project: Callable[..., Path]) -> N
 
     make_project("lev", LEV, files={"index.md": "# lev\n\n[book](https://example.org/dame-rs/design/#closing-book)\n"})
     assert CliRunner().invoke(main, ["build", "--strict", "-f", str(umbrella)]).exit_code != 0
+
+    make_project(
+        "lev", LEV, files={"index.md": '# lev\n\n<a href="https://example.org/dame-rs/design/#closing-book">b</a>\n'}
+    )
+    assert CliRunner().invoke(main, ["build", "--strict", "-f", str(umbrella)]).exit_code != 0
+
+
+def test_overlapping_destinations_are_rewritten_once() -> None:
+    assert rewrite_destinations('<img src="[x](a.png">', str.upper) == '<img src="[X](A.PNG">'
+
+
+def test_raw_html_is_found_like_python_markdown() -> None:
+    # A `>` in a quoted attribute doesn't end the tag.
+    assert rewrite_destinations('<a title="1 > 0" href="a.md">', str.upper) == '<a title="1 > 0" href="A.MD">'
