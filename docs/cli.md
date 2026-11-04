@@ -1,6 +1,7 @@
 # Command line
 
-`zm` is a short alias of `zmerge`, e.g. `zm serve`.
+`zmerge build` and `zmerge serve` are drop-in replacements for `zensical build` and `zensical serve`: options zmerge
+doesn't know are passed to Zensical unchanged. `zm` is a short alias of `zmerge`, e.g. `zm serve`.
 
 All commands accept these options:
 
@@ -8,9 +9,6 @@ All commands accept these options:
 | --- | --- |
 | `-f`, `--config-file` | Umbrella `zensical.toml` or `mkdocs.yml`, default: `zensical.toml`. |
 | `--no-fetch` | Reuse fetched git repositories instead of updating them. |
-
-`zmerge build` and `zmerge serve` are drop-in replacements for `zensical build` and `zensical serve`: all other options
-are passed to Zensical unchanged.
 
 ## `zmerge build`
 
@@ -23,43 +21,35 @@ zmerge build [-f CONFIG_FILE] [--no-fetch] [-s/--strict] [ZENSICAL_OPTIONS]
 | Option | Description |
 | --- | --- |
 | `-s`, `--strict` | Abort on zmerge or Zensical warnings, e.g. broken links. |
-
-Common options passed to `zensical build`, see `zensical build --help` for all:
-
-| Option | Description |
-| --- | --- |
-| `-c`, `--clean` | Clean Zensical's build cache. |
+| `-c`, `--clean` | Clean Zensical's build cache (passed to Zensical). |
 
 ## `zmerge serve`
 
-Assemble the merged project, serve it with `zensical serve` and re-assemble it whenever the configuration or docs of the
-umbrella project or an included project change. Git repositories are only fetched at startup.
-
-Zensical rebuilds the site when files outside the docs change that the pages are built from: the mkdocstrings sources
-of every project, the files their snippets and includes resolve to, e.g. a `README.md`, and the
-[`watch`](configuration.md#how-project-settings-are-merged) paths of every project. To watch more, e.g. templates used
-by a macro, add them to the project's `watch` setting:
-
-```toml
-[project]
-watch = ["src", "README.md"]
-```
+Assemble the merged project, serve it with `zensical serve` and re-assemble it whenever the configuration or docs of a
+project change. Git repositories are only fetched at startup.
 
 ```bash
 zmerge serve [-f CONFIG_FILE] [--no-fetch] [ZENSICAL_OPTIONS]
 ```
 
-Common options passed to `zensical serve`, see `zensical serve --help` for all:
-
 | Option | Description |
 | --- | --- |
-| `-a`, `--dev-addr` | IP address and port, default: `localhost:8000`. |
-| `-o`, `--open` | Open the preview in the default browser. |
+| `-a`, `--dev-addr` | IP address and port, default: `localhost:8000` (passed to Zensical). |
+| `-o`, `--open` | Open the preview in the default browser (passed to Zensical). |
+
+The site also rebuilds when the mkdocstrings sources of a project or files included with snippets or includes change.
+To watch other files, e.g. templates used by a macro, add them to the project's `watch` setting, relative to the
+project:
+
+```toml
+[project]
+watch = ["templates"]
+```
 
 ## `zmerge assemble`
 
-Write the [generated files](index.md#generated-files) without building, and print the path of `.zmerge.toml`. Use it
-to run Zensical yourself:
+Write `.zmerge.toml` and `.zmerge/` without building, and print the path of `.zmerge.toml`. Use it to run Zensical
+yourself:
 
 ```bash
 zensical build -f "$(zmerge assemble)"
