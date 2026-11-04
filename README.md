@@ -41,6 +41,9 @@ nav = [
   { Typer = "!include git+https://github.com/fastapi/typer.git" },
 ]
 
+[project.theme]
+features = ["navigation.indexes"]
+
 [project.markdown_extensions.admonition]
 [project.markdown_extensions.toc]
 permalink = true
@@ -53,13 +56,15 @@ zmerge build --strict
 zmerge serve
 ```
 
-zmerge generates `.zmerge/` and `.zmerge.toml` next to the umbrella configuration. Keep `.zmerge.toml` out of git:
+zmerge writes the merged project to `.zmerge.toml` and `.zmerge/` and regenerates both on every run. Keep
+`.zmerge.toml` out of git; `.zmerge/` contains its own `.gitignore`:
 
 ```bash
 echo .zmerge.toml >> .gitignore
 ```
 
-Read the [documentation](https://karelze.github.io/zmerge/) for the configuration, links between projects and
+Read the [documentation](https://karelze.github.io/zmerge/) to [include projects and link between
+them](https://karelze.github.io/zmerge/configuration/), and its
 [limitations](https://karelze.github.io/zmerge/limitations/). The docs are built with zmerge themselves: their
 [example](https://karelze.github.io/zmerge/example/lev/) merges lev and Typer from GitHub, see
 [`zensical.toml`](https://github.com/KarelZe/zmerge/blob/main/zensical.toml).

@@ -10,7 +10,6 @@ edit_uri = "edit/main/docs/"
 nav = [
   { Home = "index.md" },
   { Configuration = "configuration.md" },
-  { Links = "links.md" },
   { "Command line" = "cli.md" },
   { "Migrating from mkdocs-monorepo-plugin" = "migrating.md" },
   { Limitations = "limitations.md" },
