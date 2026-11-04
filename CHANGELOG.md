@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.0](https://github.com/KarelZe/zmerge/compare/0.5.0...0.6.0) (2026-11-04)
+
+
+### Features
+
+* rewrite links in raw HTML like Zensical ✨ ([#68](https://github.com/KarelZe/zmerge/issues/68)) ([708fefa](https://github.com/KarelZe/zmerge/commit/708fefab498c34fcfc47c447d2581a19556cc632))
+* watch project sources and snippet files in serve ✨ ([#80](https://github.com/KarelZe/zmerge/issues/80)) ([e2c7d57](https://github.com/KarelZe/zmerge/commit/e2c7d57f29ce946e9c41a74e851864759787df3c))
+
+
+### Documentation
+
+* leave links out of the umbrella's docs unchanged like Zensical 📝 ([#82](https://github.com/KarelZe/zmerge/issues/82)) ([0f1450b](https://github.com/KarelZe/zmerge/commit/0f1450b94d0307e3e1701d5f6128d070bef129b3)), closes [#66](https://github.com/KarelZe/zmerge/issues/66)
+
 ## [0.5.0](https://github.com/KarelZe/zmerge/compare/0.4.1...0.5.0) (2026-11-03)
 
 
