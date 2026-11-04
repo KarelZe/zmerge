@@ -4,7 +4,7 @@ The merged project is written next to the umbrella configuration, so all paths i
 (``custom_dir``, ``site_dir``, ...) stay valid:
 
 - ``.zmerge/docs/`` holds the umbrella docs and the docs of every project below its prefix.
-- ``.zmerge.toml`` is the umbrella configuration with the merged ``nav`` and ``docs_dir``.
+- ``.zmerge.toml`` is the umbrella configuration with the merged ``nav``, ``docs_dir`` and ``watch``.
 
 Files are hardlinked where possible. A file in the staging directory may share its inode with the source, so it must
 never be opened for writing in place; replace it instead.
@@ -29,7 +29,7 @@ from pathspec import GitIgnoreSpec
 from zmerge.config import STAGING_DIR, Include, Link, Section, ZmergeError
 from zmerge.directives import rewrite_directives
 from zmerge.links import rewrite_links
-from zmerge.merge import merge_config
+from zmerge.merge import merge_config, rebase
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -97,7 +97,7 @@ def assemble(site: Site) -> Assembly:
         if path.endswith(".md") and path not in excluded
     }
     rewritten, link_warnings = rewrite_links(site, files, pages)
-    rewrite_directives(site, files, pages, rewritten, merged)
+    included = rewrite_directives(site, files, pages, rewritten, merged)
     _sync(files, docs_dir, rewritten)
     _write_if_changed(staging / ".gitignore", "*\n")
 
@@ -105,6 +105,10 @@ def assemble(site: Site) -> Assembly:
     warnings = merged.warnings + link_warnings
     config["docs_dir"] = docs_dir.relative_to(site.root).as_posix()
     config["nav"] = nav
+    if included:
+        # Zensical renders snippets and includes into the pages but doesn't rebuild them when the files change.
+        watch = [*config.get("watch", []), *(rebase(path, site.root) for path in sorted(included))]
+        config["watch"] = list(dict.fromkeys(watch))
     config_file = site.root / GENERATED_CONFIG
     _write_if_changed(
         config_file,

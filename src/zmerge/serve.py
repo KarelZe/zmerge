@@ -1,7 +1,8 @@
 """Serve the merged site and re-assemble it when the sources of the umbrella site or a project change.
 
 ``zensical serve`` watches the merged docs directory. zmerge watches the sources and incrementally re-assembles the
-merged project, so Zensical only sees the files that changed.
+merged project, so Zensical only sees the files that changed. Files outside the docs that pages are built from, like
+mkdocstrings sources and snippets, are listed in the merged ``watch`` setting, so Zensical rebuilds the site itself.
 """
 
 from __future__ import annotations

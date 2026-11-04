@@ -35,6 +35,16 @@ Common options passed to `zensical build`, see `zensical build --help` for all:
 Assemble the merged project, serve it with `zensical serve` and re-assemble it whenever the configuration or docs of the
 umbrella project or an included project change. Git repositories are only fetched at startup.
 
+Zensical rebuilds the site when files outside the docs change that the pages are built from: the mkdocstrings sources
+of every project, the files their snippets and includes resolve to, e.g. a `README.md`, and the
+[`watch`](configuration.md#how-project-settings-are-merged) paths of every project. To watch more, e.g. templates used
+by a macro, add them to the project's `watch` setting:
+
+```toml
+[project]
+watch = ["src", "README.md"]
+```
+
 ```bash
 zmerge serve [-f CONFIG_FILE] [--no-fetch] [ZENSICAL_OPTIONS]
 ```

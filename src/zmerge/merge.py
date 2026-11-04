@@ -9,6 +9,8 @@ From the projects, zmerge takes what their pages need to render:
 - ``pymdownx.snippets`` base paths of all projects are combined.
 - Local ``extra_css`` and ``extra_javascript`` files are moved below the project prefix.
 - ``exclude_docs``, ``draft_docs`` and ``not_in_nav`` patterns are anchored at the project prefix.
+- ``watch`` paths of all projects and their mkdocstrings sources are combined, so ``zensical serve`` rebuilds the site
+  when they change.
 """
 
 from __future__ import annotations
@@ -90,6 +92,9 @@ def merge_config(site: Site) -> MergedConfig:
             config[key] = assets
     _check_libraries(site, projects, warnings)
 
+    if watch := _merge_watch(site, projects, warnings):
+        config["watch"] = watch
+
     for key in _PATTERN_KEYS:
         patterns = [config[key].rstrip("\n")] if config.get(key) else []
         patterns += [_prefix_patterns(p.config[key], p.prefix) for p in projects if p.config.get(key)]
@@ -108,6 +113,44 @@ def merge_config(site: Site) -> MergedConfig:
 
     config.pop("nav", None)
     return merged
+
+
+def _merge_watch(site: Site, projects: list[Project], warnings: list[str]) -> list[str]:
+    """Combine the ``watch`` paths of all projects with the directories their mkdocstrings handlers read sources from.
+
+    ``zensical serve`` rebuilds the site when a watched file changes. Zensical watches mkdocstrings sources by itself,
+    but only inside the root of the merged project, so the sources of projects elsewhere must be watched explicitly.
+    Like Zensical, zmerge doesn't watch a project root, which is the default of the handler ``paths``. Paths containing
+    the umbrella root aren't watched either: they contain the generated files and would rebuild the site in a loop.
+
+    Returns:
+        The watched paths, relative to the umbrella root if they are inside of it.
+    """
+    watch = _watch_entries(site.config_file, site.config)  # Already relative to the umbrella root.
+    for project in projects:
+        for entry in _watch_entries(project.config_file, project.config):
+            path = (project.root / entry).resolve()
+            if site.root.is_relative_to(path):
+                warnings.append(
+                    f"{project.config_file}: not watching {entry!r}, which contains the umbrella project; "
+                    "watch the directories with sources instead"
+                )
+            else:
+                watch.append(rebase(path, site.root))
+        plugins = _normalize_plugins(project.config.get("plugins", {}), config_file=project.config_file)
+        for handler in plugins.get("mkdocstrings", {}).get("handlers", {}).values():
+            for entry in handler.get("paths", []):
+                path = (project.root / entry).resolve()
+                if path.is_dir() and not project.root.is_relative_to(path) and not site.root.is_relative_to(path):
+                    watch.append(rebase(path, site.root))
+    return list(dict.fromkeys(watch))
+
+
+def _watch_entries(config_file: Path, config: Mapping[str, Any]) -> list[str]:
+    entries = config.get("watch", [])
+    if not isinstance(entries, list) or not all(isinstance(entry, str) for entry in entries):
+        raise ZmergeError(f"{config_file}: `watch` must be a list of paths")
+    return list(entries)
 
 
 def _has_untitled_section(nav: tuple[NavItem, ...] | None) -> bool:
@@ -185,7 +228,7 @@ def _merge_extensions(site: Site, projects: list[Project], warnings: list[str]) 
             if name == SNIPPETS:
                 options = dict(options)
                 for path in snippet_base_paths(options, root=config_file.parent):
-                    rebased = _rebase(path, site.root)
+                    rebased = rebase(path, site.root)
                     if rebased not in base_paths:
                         base_paths.append(rebased)
                 options.pop("base_path", None)
@@ -332,7 +375,7 @@ def _subset(options: Mapping[str, Any], keys: list[str]) -> dict[str, Any]:
 def _rebase_mkdocstrings(options: dict[str, Any], *, root: Path, umbrella_root: Path) -> None:
     """Make handler ``paths`` relative to the umbrella root. Like mkdocstrings, an unset ``paths`` means ``["."]``."""
     for handler in options.get("handlers", {}).values():
-        handler["paths"] = [_rebase(root / path, umbrella_root) for path in handler.get("paths", ["."])]
+        handler["paths"] = [rebase(root / path, umbrella_root) for path in handler.get("paths", ["."])]
 
 
 def _merge_mkdocstrings(
@@ -398,7 +441,7 @@ def _directive_options(mkdocstrings: dict[str, Any], projects: list[Project]) ->
     return result
 
 
-def _rebase(path: Path, root: Path) -> str:
+def rebase(path: Path, root: Path) -> str:
     """Express ``path`` relative to ``root`` if it is inside of it, otherwise as an absolute path."""
     path = path.resolve()
     return path.relative_to(root).as_posix() if path.is_relative_to(root) else path.as_posix()

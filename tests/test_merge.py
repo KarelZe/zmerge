@@ -393,3 +393,49 @@ def test_extension_options_are_merged_per_key(two_projects: Callable[..., Site])
 
     assert config["markdown_extensions"]["pymdownx.superfences"] == {"custom_fences": fences}
     assert warnings == []
+
+
+def test_watch_paths_are_combined(two_projects: Callable[..., Site], tmp_path: Path) -> None:
+    for path in ("lev/src", "dame/python"):
+        (tmp_path / path).mkdir(parents=True)
+    handlers = {"python": {"paths": [".", "src", "missing"]}, "crystal": {"paths": ["src"]}}
+    site = two_projects(
+        {"watch": ["overrides", "../lev/README.md"]},
+        {"watch": ["README.md", "../shared"], "plugins": {"mkdocstrings": {"handlers": handlers}}},
+        {"plugins": [{"mkdocstrings": {"handlers": {"python": {"paths": ["python"]}}}}]},
+    )
+
+    config, warnings = unpack(merge_config(site))
+
+    # Project roots, the default of the handler `paths`, aren't watched; neither are missing source directories.
+    assert config["watch"] == [
+        "overrides",
+        "../lev/README.md",
+        (tmp_path / "lev" / "README.md").as_posix(),
+        (tmp_path / "shared").as_posix(),
+        (tmp_path / "lev" / "src").as_posix(),
+        (tmp_path / "dame" / "python").as_posix(),
+    ]
+    assert warnings == []
+
+
+def test_watch_skips_paths_containing_the_umbrella(two_projects: Callable[..., Site], tmp_path: Path) -> None:
+    site = two_projects(
+        {}, {"watch": [".."]}, {"plugins": {"mkdocstrings": {"handlers": {"python": {"paths": [".."]}}}}}
+    )
+
+    merged = merge_config(site)
+
+    assert "watch" not in merged.config
+    assert merged.warnings == [
+        f"{tmp_path / 'lev' / 'zensical.toml'}: not watching '..', which contains the umbrella project; "
+        "watch the directories with sources instead"
+    ]
+
+
+@pytest.mark.parametrize("watch", ["src", ["src", 1]])
+def test_invalid_watch(two_projects: Callable[..., Site], watch: object) -> None:
+    site = two_projects({}, {"watch": watch})
+
+    with pytest.raises(ZmergeError, match="`watch` must be a list of paths"):
+        merge_config(site)
