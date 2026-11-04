@@ -45,8 +45,8 @@ warns.
 ## Links from the umbrella project
 
 Link from the umbrella project's pages to project pages with their merged path, e.g. `[lev](lev/index.md)`, or with
-absolute URLs as above. Relative links out of the umbrella's `docs_dir` aren't rewritten yet, see
-[limitations](limitations.md).
+absolute URLs as above. Relative links out of the umbrella's `docs_dir` are left unchanged, like in a plain Zensical
+build.
 
 ## What is rewritten
 

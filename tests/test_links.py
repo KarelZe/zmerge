@@ -22,19 +22,29 @@ DAME = {"site_url": "https://Example.org/dame-rs/"}
 
 @pytest.fixture
 def merge(make_project: Callable[..., Path]) -> Callable[..., Assembly]:
-    def factory(lev_files: dict[str, str], *, lev: dict[str, object] | None = None, umbrella_index: str = "# Home\n"):
+    def factory(
+        lev_files: dict[str, str],
+        *,
+        lev: dict[str, object] | None = None,
+        umbrella_index: str = "# Home\n",
+        umbrella: dict[str, object] | None = None,
+    ):
         make_project("lev", LEV if lev is None else lev, files=lev_files)
         make_project(
             "dame-rs",
             DAME,
             files={"index.md": "# dame\n", "design.md": "# Design\n\n## Opening book\n", "img/app.png": "png"},
         )
-        umbrella = make_project(
+        config_file = make_project(
             "umbrella",
-            {"site_url": "https://example.org/", "nav": [{"lev": "!include ../lev"}, {"dame": "!include ../dame-rs"}]},
+            {
+                "site_url": "https://example.org/",
+                "nav": [{"lev": "!include ../lev"}, {"dame": "!include ../dame-rs"}],
+                **(umbrella or {}),
+            },
             files={"index.md": umbrella_index},
         )
-        return assemble(load_site(umbrella))
+        return assemble(load_site(config_file))
 
     return factory
 
@@ -155,6 +165,18 @@ def test_links_leaving_the_docs_without_repo_url_warn(merge: Callable[..., Assem
     assert staged(assembly, "lev/index.md") == "[l](../LICENSE)\n"
     (warning,) = assembly.warnings
     assert "set `repo_url` and `edit_uri`" in warning
+
+
+def test_links_leaving_the_umbrella_docs_stay_unchanged(merge: Callable[..., Assembly], tmp_path: Path) -> None:
+    # The umbrella's pages keep their depth in the merged docs, so Zensical renders them like in a plain build.
+    (tmp_path / "umbrella").mkdir()
+    (tmp_path / "umbrella" / "LICENSE").write_text("", encoding="utf-8")
+    umbrella = {"repo_url": "https://github.com/me/umbrella", "edit_uri": "edit/main/docs/"}
+
+    assembly = merge({"index.md": "# lev\n"}, umbrella_index="[l](../LICENSE#L3)\n", umbrella=umbrella)
+
+    assert staged(assembly, "index.md") == "[l](../LICENSE#L3)\n"
+    assert assembly.warnings == []
 
 
 def test_rewriting_never_touches_the_sources(merge: Callable[..., Assembly], tmp_path: Path) -> None:
