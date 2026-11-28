@@ -13,10 +13,12 @@ nav = [
   { "Command line" = "cli.md" },
   { "Migrating from mkdocs-monorepo-plugin" = "migrating.md" },
   { Limitations = "limitations.md" },
-  # These docs are built with zmerge: the example merges lev and Typer straight from GitHub.
+  # These docs are built with zmerge: the example merges lev and Typer straight from GitHub. They are pinned to
+  # releases zmerge can merge: later versions add lev's `llmstxt` sections, whose paths aren't anchored at the
+  # project prefix, and Typer's `scripts.agent_banner` extension, which can't be imported outside Typer's repository.
   { Example = [
-    { lev = "!include git+https://github.com/KarelZe/lev.git" },
-    { Typer = "!include git+https://github.com/fastapi/typer.git" },
+    { lev = "!include git+https://github.com/KarelZe/lev.git@0.6.1" },
+    { Typer = "!include git+https://github.com/fastapi/typer.git@0.28.0" },
   ] },
 ]
 # Typer's release notes link to pages that no longer exist.
